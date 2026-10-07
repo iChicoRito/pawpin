@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
-const BAR_HEIGHT = 64;
+export const BAR_HEIGHT = 64;
 const ICON_SIZE = 20;
 /** Width of the top line, as a share of one tab's width. */
 const LINE_SHARE = 0.6;
