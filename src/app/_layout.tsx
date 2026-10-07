@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '@/global.css';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { SessionProvider, useSession } from '@/hooks/use-session';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,12 +17,32 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <HeroUINativeProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <AnimatedSplashOverlay />
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </Stack>
+          <SessionProvider>
+            <RootNavigator />
+          </SessionProvider>
         </ThemeProvider>
       </HeroUINativeProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function RootNavigator() {
+  const { session, isLoading } = useSession();
+
+  // The phone's own splash stays up until the saved session is read, so the wrong screen never flashes.
+  if (isLoading) return null;
+
+  return (
+    <>
+      <AnimatedSplashOverlay />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={!!session}>
+          <Stack.Screen name="(tabs)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!session}>
+          <Stack.Screen name="welcome" />
+        </Stack.Protected>
+      </Stack>
+    </>
   );
 }
