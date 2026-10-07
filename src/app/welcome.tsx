@@ -8,22 +8,33 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { signInWithGoogle } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
+type Method = 'google' | 'guest';
+
+async function signInAsGuest() {
+  const { error } = await supabase.auth.signInAnonymously();
+  if (error) throw error;
+}
+
 export default function WelcomeScreen() {
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signingIn, setSigningIn] = useState<Method | null>(null);
   const [failed, setFailed] = useState(false);
   const danger = useThemeColor('danger');
 
-  async function continueAsGuest() {
-    setIsSigningIn(true);
+  async function signIn(method: Method) {
+    setSigningIn(method);
     setFailed(false);
-    const { error } = await supabase.auth.signInAnonymously().catch((error: unknown) => ({ error }));
-    // On success the route guard in the root layout swaps this screen for the tabs.
-    if (error) {
+    try {
+      await (method === 'google' ? signInWithGoogle() : signInAsGuest());
+      // On success the route guard in the root layout swaps this screen for the tabs.
+    } catch (error) {
+      // The screen shows a short message; the real cause goes to the dev log.
+      console.warn('Sign-in failed:', error);
       setFailed(true);
-      setIsSigningIn(false);
     }
+    setSigningIn(null);
   }
 
   return (
@@ -46,11 +57,18 @@ export default function WelcomeScreen() {
               </ThemedText>
             </View>
           )}
-          <Button size="lg" isDisabled={isSigningIn} onPress={continueAsGuest}>
-            {isSigningIn ? 'Signing in…' : 'Continue as Guest'}
+          <Button size="lg" isDisabled={signingIn !== null} onPress={() => signIn('google')}>
+            {signingIn === 'google' ? 'Signing in…' : 'Continue with Google'}
+          </Button>
+          <Button
+            size="lg"
+            variant="secondary"
+            isDisabled={signingIn !== null}
+            onPress={() => signIn('guest')}>
+            {signingIn === 'guest' ? 'Signing in…' : 'Continue as Guest'}
           </Button>
           <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-            No account needed. Guest reports stay on this phone.
+            Guests can report strays. Guest reports stay on this phone.
           </ThemedText>
         </View>
       </SafeAreaView>
