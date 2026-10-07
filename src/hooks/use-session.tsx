@@ -27,5 +27,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
 export function useSession() {
   const { session, isLoading } = use(SessionContext);
-  return { session, isLoading, isGuest: session?.user.is_anonymous === true };
+  const user = session?.user;
+  // After a guest links Google, the name and photo may only be on the linked identity, so that is the fallback.
+  const google = user?.identities?.find((identity) => identity.provider === 'google')?.identity_data;
+  const name: string | undefined = user?.user_metadata?.full_name ?? google?.full_name;
+  const avatarUrl: string | undefined = user?.user_metadata?.avatar_url ?? google?.avatar_url;
+  return { session, isLoading, isGuest: user?.is_anonymous === true, name, avatarUrl };
 }

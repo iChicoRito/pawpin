@@ -1,25 +1,166 @@
-import { Button } from 'heroui-native';
+import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
+import PencilEdit01Icon from '@hugeicons/core-free-icons/PencilEdit01Icon';
+import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
+import UserIcon from '@hugeicons/core-free-icons/UserIcon';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import { useRouter } from 'expo-router';
+import { Avatar, Button, FieldError, Input, Label, TextField, useThemeColor } from 'heroui-native';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+
+const NAME_MAX_LENGTH = 40;
+
+/** "Mark Adrianne Salunga" becomes "MS": first and last word. */
+function initialsOf(name: string) {
+  const words = name.trim().split(/\s+/);
+  const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0][0];
+  return letters.toUpperCase();
+}
 
 export default function ProfileScreen() {
-  const { session, isGuest } = useSession();
+  const { session, isGuest, name, avatarUrl } = useSession();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [foreground, accent, muted, border] = useThemeColor([
+    'foreground',
+    'accent',
+    'muted',
+    'border',
+  ]);
+  const [isEditingName, setIsEditingName] = useState(false);
 
-  const user = session?.user;
-  const name: string | undefined =
-    user?.user_metadata?.full_name ??
-    user?.identities?.find((identity) => identity.provider === 'google')?.identity_data?.full_name;
+  const displayName = name ?? (isGuest ? 'Guest' : 'Google account');
+  const joined =
+    session &&
+    new Date(session.user.created_at).toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="subtitle">Profile</ThemedText>
-      {isGuest ? <GuestCard /> : name && <ThemedText>{name}</ThemedText>}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.four }]}>
+        <ThemedText type="subtitle" role="heading">
+          Profile
+        </ThemedText>
+
+        <View style={styles.identity}>
+          <Avatar alt={displayName} size="lg" color="accent" variant="soft">
+            {avatarUrl && <Avatar.Image source={{ uri: avatarUrl }} />}
+            <Avatar.Fallback>
+              {!name ? (
+                <HugeiconsIcon icon={UserIcon} size={28} color={accent} />
+              ) : (
+                initialsOf(name)
+              )}
+            </Avatar.Fallback>
+          </Avatar>
+          <View style={styles.identityText}>
+            <ThemedText style={styles.name} numberOfLines={2}>
+              {displayName}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {isGuest ? 'Guest account on this phone' : 'Signed in with Google'}
+            </ThemedText>
+            {joined && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Joined {joined}
+              </ThemedText>
+            )}
+          </View>
+        </View>
+
+        {isGuest && isEditingName && (
+          <NameEditor currentName={name ?? ''} onDone={() => setIsEditingName(false)} />
+        )}
+
+        {isGuest && <GuestCard />}
+
+        {/* Same surface and padding as the card above, so the icon lines up with the card's text. */}
+        <ThemedView type="backgroundElement" style={styles.menu}>
+          {/* Google users take their name from Google, so only guests can set one here. */}
+          {isGuest && !isEditingName && (
+            <Pressable
+              role="button"
+              onPress={() => setIsEditingName(true)}
+              style={({ pressed }) => [
+                styles.menuRow,
+                styles.menuRowDivided,
+                { borderBottomColor: border },
+                pressed && styles.pressed,
+              ]}>
+              <HugeiconsIcon icon={PencilEdit01Icon} size={22} color={foreground} />
+              <ThemedText style={styles.menuLabel}>{name ? 'Edit name' : 'Add your name'}</ThemedText>
+            </Pressable>
+          )}
+          <Pressable
+            role="button"
+            onPress={() => router.push('/settings')}
+            style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
+            <HugeiconsIcon icon={Settings01Icon} size={22} color={foreground} />
+            <ThemedText style={styles.menuLabel}>Settings</ThemedText>
+            <HugeiconsIcon icon={ArrowRight01Icon} size={20} color={muted} />
+          </Pressable>
+        </ThemedView>
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+function NameEditor({ currentName, onDone }: { currentName: string; onDone: () => void }) {
+  const [value, setValue] = useState(currentName);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'failed'>('idle');
+
+  const trimmed = value.trim();
+  const isEmpty = trimmed.length === 0;
+
+  async function save() {
+    setStatus('saving');
+    // The name lives on the account; a database trigger copies it into the profiles table.
+    const { error } = await supabase.auth.updateUser({ data: { full_name: trimmed } });
+    if (error) {
+      console.warn('Saving name failed:', error);
+      setStatus('failed');
+      return;
+    }
+    onDone();
+  }
+
+  return (
+    <ThemedView type="backgroundElement" style={styles.card}>
+      <TextField isInvalid={status === 'failed'}>
+        <Label>Your name</Label>
+        <Input
+          value={value}
+          onChangeText={setValue}
+          maxLength={NAME_MAX_LENGTH}
+          placeholder="Enter your name"
+          autoFocus
+          autoCapitalize="words"
+          returnKeyType="done"
+          onSubmitEditing={() => !isEmpty && save()}
+        />
+        {status === 'failed' && (
+          <FieldError>Could not save your name. Check your connection and try again.</FieldError>
+        )}
+      </TextField>
+      <View style={styles.choices}>
+        <Button variant="secondary" onPress={onDone}>
+          Cancel
+        </Button>
+        <Button isDisabled={isEmpty || status === 'saving'} onPress={save}>
+          {status === 'saving' ? 'Saving…' : 'Save'}
+        </Button>
+      </View>
     </ThemedView>
   );
 }
@@ -61,9 +202,9 @@ function GuestCard() {
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">You are using PawPin as a guest</ThemedText>
+      <ThemedText type="smallBold">Keep your reports</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        Your reports can be lost if you uninstall the app or change phones. Sign in with Google to
+        Guest reports can be lost if you uninstall the app or change phones. Sign in with Google to
         keep them.
       </ThemedText>
       {status === 'failed' && (
@@ -71,7 +212,10 @@ function GuestCard() {
           Could not sign you in. Check your connection and try again.
         </ThemedText>
       )}
-      <Button isDisabled={status === 'working'} onPress={() => run(linkGoogle)}>
+      <Button
+        style={styles.cardAction}
+        isDisabled={status === 'working'}
+        onPress={() => run(linkGoogle)}>
         {status === 'working' ? 'Signing in…' : 'Sign in with Google'}
       </Button>
     </ThemedView>
@@ -81,21 +225,65 @@ function GuestCard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.four,
-    padding: Spacing.four,
   },
-  card: {
+  // One column: every block below shares this left and right edge.
+  content: {
     width: '100%',
     maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    gap: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.four,
+  },
+  identity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  identityText: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  name: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: 600,
+  },
+  card: {
     gap: Spacing.two,
     padding: Spacing.three,
     borderRadius: Spacing.three,
+  },
+  menu: {
+    borderRadius: Spacing.three,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    minHeight: 56,
+    paddingHorizontal: Spacing.three,
+    // Keeps the keyboard focus ring on the card's rounded shape.
+    borderRadius: Spacing.three,
+  },
+  menuRowDivided: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  menuLabel: {
+    flex: 1,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  cardAction: {
+    marginTop: Spacing.two,
   },
   choices: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: Spacing.two,
+    marginTop: Spacing.two,
   },
 });
