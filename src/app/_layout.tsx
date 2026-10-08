@@ -9,8 +9,11 @@ import '@/global.css';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { NearbyReportsProvider } from '@/hooks/use-nearby-reports';
 import { SessionProvider, useSession } from '@/hooks/use-session';
+import { loadAppearance } from '@/lib/appearance';
 
 SplashScreen.preventAutoHideAsync();
+// Started here, while the splash is still up, so the app does not open in the wrong colors.
+loadAppearance();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

@@ -1,10 +1,20 @@
 import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
+import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
 import PencilEdit01Icon from '@hugeicons/core-free-icons/PencilEdit01Icon';
 import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { useRouter } from 'expo-router';
-import { Avatar, Button, FieldError, Input, Label, TextField, useThemeColor } from 'heroui-native';
+import {
+  Avatar,
+  Button,
+  FieldError,
+  Input,
+  Label,
+  Select,
+  TextField,
+  useThemeColor,
+} from 'heroui-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +23,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
+import { APPEARANCES, setAppearance, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
@@ -36,6 +47,7 @@ export default function ProfileScreen() {
     'border',
   ]);
   const [isEditingName, setIsEditingName] = useState(false);
+  const appearance = useAppearance();
 
   const displayName = name ?? (isGuest ? 'Guest' : 'Google account');
   const joined =
@@ -98,17 +110,43 @@ export default function ProfileScreen() {
                 { borderBottomColor: border },
                 pressed && styles.pressed,
               ]}>
-              <HugeiconsIcon icon={PencilEdit01Icon} size={22} color={foreground} />
+              <HugeiconsIcon icon={PencilEdit01Icon} size={18} color={foreground} />
               <ThemedText style={styles.menuLabel}>{name ? 'Edit name' : 'Add your name'}</ThemedText>
             </Pressable>
           )}
+          {/* A row like the others. Tapping it opens the three choices in a sheet from the bottom. */}
+          <Select
+            // Must be the same word as on Select.Content below, or HeroUI throws.
+            presentation="bottom-sheet"
+            value={APPEARANCES.find((option) => option.value === appearance)}
+            onValueChange={(option) => option && setAppearance(option.value as typeof appearance)}>
+            <Select.Trigger
+              variant="unstyled"
+              aria-label={`Appearance, ${appearance}`}
+              style={[styles.menuRow, styles.menuRowDivided, { borderBottomColor: border }]}>
+              <HugeiconsIcon icon={Moon02Icon} size={18} color={foreground} />
+              <ThemedText style={styles.menuLabel}>Appearance</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {APPEARANCES.find((option) => option.value === appearance)?.label}
+              </ThemedText>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Overlay />
+              <Select.Content presentation="bottom-sheet">
+                {APPEARANCES.map((option) => (
+                  <Select.Item key={option.value} value={option.value} label={option.label} />
+                ))}
+              </Select.Content>
+            </Select.Portal>
+          </Select>
           <Pressable
             role="button"
             onPress={() => router.push('/settings')}
             style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
-            <HugeiconsIcon icon={Settings01Icon} size={22} color={foreground} />
+            <HugeiconsIcon icon={Settings01Icon} size={18} color={foreground} />
             <ThemedText style={styles.menuLabel}>Settings</ThemedText>
-            <HugeiconsIcon icon={ArrowRight01Icon} size={20} color={muted} />
+            <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
           </Pressable>
         </ThemedView>
       </ScrollView>
