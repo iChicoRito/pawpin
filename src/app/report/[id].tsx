@@ -12,6 +12,7 @@ import { ReportPlaceMap } from '@/components/report-place-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useDirections } from '@/hooks/use-directions';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
 import { useSession } from '@/hooks/use-session';
 import { formatAge, formatDistance, initialsOf } from '@/lib/format';
@@ -36,6 +37,8 @@ export default function ReportDetailScreen() {
   const report = reports.find((candidate) => candidate.id === id);
 
   const reporter = useReporter(report?.reporterId);
+  const directions = useDirections(report);
+  const [surface, border] = useThemeColor(['surface', 'border']);
 
   if (!report) {
     return (
@@ -67,7 +70,8 @@ export default function ReportDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.five }}>
+      {/* The page scrolls above the buttons, which stay put. */}
+      <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
         {/* The photo leads: edge to edge, no frame, because recognising the animal comes first. */}
         {report.photos.length > 0 && (
           <View style={[styles.photos, { width: photoWidth, height: photoHeight }]}>
@@ -195,6 +199,26 @@ export default function ReportDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Always in reach, on either tab and at any scroll: going is what this page is for. */}
+      <View
+        style={[
+          styles.actions,
+          {
+            paddingBottom: insets.bottom + Spacing.three,
+            backgroundColor: surface,
+            borderTopColor: border,
+          },
+        ]}>
+        <View style={styles.actionsRow}>
+          <Button variant="secondary" onPress={directions.openWaze}>
+            Open in Waze
+          </Button>
+          <Button style={styles.mainAction} onPress={directions.openGoogleMaps}>
+            Get directions
+          </Button>
+        </View>
+      </View>
     </ThemedView>
   );
 }
@@ -375,6 +399,26 @@ const styles = StyleSheet.create({
   },
   centered: {
     textAlign: 'center',
+  },
+  scroll: {
+    paddingBottom: Spacing.five,
+  },
+  actions: {
+    paddingTop: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  // Same column as the page above it.
+  actionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    width: '100%',
+    maxWidth: MaxContentWidth - Spacing.four * 2,
+    alignSelf: 'center',
+  },
+  // The main button takes the room that is left.
+  mainAction: {
+    flex: 1,
   },
   // Centered on a wide screen, where the photo stops growing at the column's width.
   photos: {

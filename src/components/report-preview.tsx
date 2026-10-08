@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { URGENCY_CHIP } from '@/components/report-card';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useDirections } from '@/hooks/use-directions';
 import { useSession } from '@/hooks/use-session';
 import { formatAge, formatDistance } from '@/lib/format';
 import type { NearbyReport } from '@/lib/nearby';
@@ -27,6 +28,7 @@ type ReportPreviewProps = {
 export function ReportPreview({ report, isOpen, onClose, onView }: ReportPreviewProps) {
   const { session } = useSession();
   const border = useThemeColor('border');
+  const directions = useDirections(report);
 
   // Condition, size, and color on one quiet line. Only what the reporter gave.
   const traits = report
@@ -103,8 +105,15 @@ export function ReportPreview({ report, isOpen, onClose, onView }: ReportPreview
                 </View>
               )}
 
-              {/* 4. The one action. */}
-              <Button onPress={() => onView(report)}>View report</Button>
+              {/* 4. Go, or read more first. Going is the main one: two taps from opening the app. */}
+              <View style={styles.actions}>
+                <Button variant="secondary" onPress={() => onView(report)}>
+                  View report
+                </Button>
+                <Button style={styles.mainAction} onPress={directions.openGoogleMaps}>
+                  Get directions
+                </Button>
+              </View>
             </View>
           )}
         </BottomSheet.Content>
@@ -171,5 +180,12 @@ const styles = StyleSheet.create({
   },
   landmark: {
     fontWeight: 600,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  mainAction: {
+    flex: 1,
   },
 });
