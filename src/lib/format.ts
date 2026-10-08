@@ -6,6 +6,13 @@ export function formatDistance(meters: number) {
   return km < 9.95 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
 }
 
+/** "Mark Adrianne Salunga" becomes "MS": first and last word. */
+export function initialsOf(name: string) {
+  const words = name.trim().split(/\s+/);
+  const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0][0];
+  return letters.toUpperCase();
+}
+
 /** How long ago a time was: "Just now", "5 min ago", "3 h ago", "2 days ago". */
 export function formatAge(iso: string, now = Date.now()) {
   // A phone clock slightly behind the database gives a negative age, which also reads as just now.

@@ -25,16 +25,10 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
 import { APPEARANCES, setAppearance, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
+import { initialsOf } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 
 const NAME_MAX_LENGTH = 40;
-
-/** "Mark Adrianne Salunga" becomes "MS": first and last word. */
-function initialsOf(name: string) {
-  const words = name.trim().split(/\s+/);
-  const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0][0];
-  return letters.toUpperCase();
-}
 
 export default function ProfileScreen() {
   const { session, isGuest, name, avatarUrl } = useSession();

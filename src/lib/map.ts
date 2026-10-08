@@ -19,6 +19,14 @@ export function mapInkFor(isDark: boolean) {
   return isDark ? { ink: '#FFFFFF', edge: '#1F1F1F' } : { ink: '#1F1F1F', edge: '#FFFFFF' };
 }
 
+// A report's pin: a filled paw in its urgency color with a white edge, drawn 96 px square.
+// The names are what the map's layers ask for; they end in the urgency as the database spells it.
+export const PAW_IMAGES = {
+  'paw-critical': require('../../assets/images/pins/paw-critical.png'),
+  'paw-needs_help_soon': require('../../assets/images/pins/paw-needs_help_soon.png'),
+  'paw-just_sighted': require('../../assets/images/pins/paw-just_sighted.png'),
+};
+
 /** Close enough to tell one gate or corner from the next. */
 export const STREET_ZOOM = 17;
 

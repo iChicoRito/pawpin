@@ -1,6 +1,6 @@
 import MapsSearchIcon from '@hugeicons/core-free-icons/MapsSearchIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { useIsFocused } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { Alert, Button, useThemeColor } from 'heroui-native';
 import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
@@ -31,6 +31,7 @@ export default function ListScreen() {
 function NearbyList() {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const router = useRouter();
   const { reports, radiusM, status, failure, refresh, setRadius } = useNearbyReports();
   const muted = useThemeColor('muted');
   const [isPulling, setIsPulling] = useState(false);
@@ -52,8 +53,12 @@ function NearbyList() {
       <FlatList
         data={reports}
         keyExtractor={(report) => report.id}
-        // Opening a report comes with the report detail screen.
-        renderItem={({ item }) => <ReportCard report={item} />}
+        renderItem={({ item }) => (
+          <ReportCard
+            report={item}
+            onPress={() => router.push({ pathname: '/report/[id]', params: { id: item.id } })}
+          />
+        )}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.four }]}
         refreshing={isPulling}
         onRefresh={async () => {

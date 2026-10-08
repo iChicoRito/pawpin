@@ -1,33 +1,50 @@
 import Gps01Icon from '@hugeicons/core-free-icons/Gps01Icon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { Camera, GeoJSONSource, Layer, Map, type CameraRef } from '@maplibre/maplibre-react-native';
-import { useIsFocused } from 'expo-router';
+import {
+  Camera,
+  GeoJSONSource,
+  Images,
+  Layer,
+  Map,
+  type CameraRef,
+} from '@maplibre/maplibre-react-native';
+import { Image } from 'expo-image';
+import { useIsFocused, useRouter } from 'expo-router';
 import { Button, Spinner, useThemeColor } from 'heroui-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocationGate } from '@/components/location-gate';
 import { RadiusChoice } from '@/components/radius-choice';
+import { ReportPreview } from '@/components/report-preview';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
-import { mapInkFor, mapStyleFor, zoomForRadius } from '@/lib/map';
+import { mapInkFor, mapStyleFor, PAW_IMAGES, zoomForRadius } from '@/lib/map';
 import { RADIUS_CHOICES, URGENCY_COLORS } from '@/lib/nearby';
 import { URGENCIES, type ReportUrgency } from '@/lib/reports';
 
-// A pin's size steps up with its urgency, so the three are told apart without color too.
-const PIN_RADIUS: Record<ReportUrgency, number> = {
-  critical: 12,
-  needs_help_soon: 10,
-  just_sighted: 9,
+// A paw's size steps up with its urgency, so the three are told apart without color too. The
+// pictures are 96 px square, so 0.36 draws a paw about 34 px across.
+const PAW_SCALE: Record<ReportUrgency, number> = {
+  critical: 0.36,
+  needs_help_soon: 0.31,
+  just_sighted: 0.28,
 };
-// In the key every dot is one size, so the line reads evenly. On the map the pins still differ.
-const LEGEND_DOT = 10;
+/** Where the ripple starts: at the paw's edge, so all of it is seen and none hides under the paw. */
+const PULSE_START_RADIUS = 16;
+// In the key every paw is one size, so the line reads evenly. On the map they still differ.
+const LEGEND_PAW = 16;
 const VIEWER_RADIUS = 6;
-const PIN_EDGE = '#FFFFFF';
 const MOVE_MS = 400;
+/** One ripple out from a pin, and the short rest before the next. */
+const PULSE_MS = 1500;
+const PULSE_REST_MS = 100;
+const PULSE_RIM = '#FFFFFF';
+const PULSE_RADIUS = 46;
 const FAB_SIZE = 52;
 // Roughly the chooser's height, so the compass sits just under it.
 const CHOOSER_HEIGHT = 48;
@@ -52,6 +69,7 @@ export default function MapScreen() {
 function NearbyMap() {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const router = useRouter();
   const { reports, place, radiusM, status, failure, refresh } = useNearbyReports();
   const [surface, border, foreground] = useThemeColor(['surface', 'border', 'foreground']);
   const isDark = useColorScheme() === 'dark';
@@ -61,6 +79,11 @@ function NearbyMap() {
   // Set by the Refresh button, so the map comes back to the viewer once the new place is read.
   const shouldRecenter = useRef(false);
   const [mapFailed, setMapFailed] = useState(false);
+  // The pin that was tapped, and whether its drawer is up. Kept apart so the drawer still has
+  // its report to show while it slides away.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const selected = reports.find((report) => report.id === selectedId);
 
   // Tabs stay mounted, so this runs each time the Map comes back into view, not only once.
   useEffect(() => {
@@ -94,6 +117,27 @@ function NearbyMap() {
   }, [place]);
 
   const isLoading = status === 'loading';
+
+  // A ring ripples out from every pin and fades, over and over, so reports catch the eye. The map
+  // does the in-between frames itself; this only flips the ring between small and large.
+  const [isPulseOut, setIsPulseOut] = useState(false);
+  const prefersStill = useReducedMotion();
+  const hasReports = reports.length > 0;
+  useEffect(() => {
+    // Not while another tab is in front, and not for people who turned motion off on their phone.
+    if (!isFocused || !hasReports || prefersStill) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const out = () => {
+      setIsPulseOut(true);
+      timer = setTimeout(back, PULSE_MS);
+    };
+    const back = () => {
+      setIsPulseOut(false);
+      timer = setTimeout(out, PULSE_REST_MS);
+    };
+    timer = setTimeout(out, PULSE_REST_MS);
+    return () => clearTimeout(timer);
+  }, [isFocused, hasReports, prefersStill]);
   const radius = RADIUS_CHOICES.find((choice) => choice.value === radiusM)?.label ?? '';
   const message = failure === 'location' ? LOCATION_FAILED : NETWORK_FAILED;
   const panel = { backgroundColor: surface, borderColor: border };
@@ -157,9 +201,20 @@ function NearbyMap() {
           }}
         />
 
+        {/* The paw pictures, handed to the map once so its layers can draw them. */}
+        <Images images={PAW_IMAGES} />
+
         {/* All reports as one layer drawn by the map itself, not one view per report. */}
         <GeoJSONSource
           id="reports"
+          // The library gives each pin a 44 px touch area. Where pins overlap, the one on top is
+          // picked. A tap brings up a drawer with the summary; the full report is one more tap.
+          onPress={(event) => {
+            const id = event.nativeEvent.features[0]?.properties?.id;
+            if (typeof id !== 'string') return;
+            setSelectedId(id);
+            setIsPreviewOpen(true);
+          }}
           data={{
             type: 'FeatureCollection',
             features: reports.map((report) => ({
@@ -168,22 +223,11 @@ function NearbyMap() {
               properties: { id: report.id, urgency: report.urgency },
             })),
           }}>
+          {/* Under the pins. Grows and fades in the pin's own color, then snaps back unseen. */}
           <Layer
             type="circle"
-            id="report-pins"
+            id="report-pulse"
             source="reports"
-            // The most urgent pin is drawn on top where pins overlap.
-            layout={{
-              'circle-sort-key': [
-                'match',
-                ['get', 'urgency'],
-                'critical',
-                3,
-                'needs_help_soon',
-                2,
-                1,
-              ],
-            }}
             paint={{
               'circle-color': [
                 'match',
@@ -194,18 +238,48 @@ function NearbyMap() {
                 URGENCY_COLORS.needs_help_soon,
                 URGENCY_COLORS.just_sighted,
               ],
-              'circle-radius': [
+              'circle-radius': isPulseOut ? PULSE_RADIUS : PULSE_START_RADIUS,
+              'circle-opacity': isPulseOut ? 0 : 0.6,
+              // A firm rim on the ring, so its edge shows on a busy map as it spreads.
+              'circle-stroke-color': PULSE_RIM,
+              'circle-stroke-width': 2,
+              'circle-stroke-opacity': isPulseOut ? 0 : 0.9,
+              // Slow on the way out, instant on the way back.
+              'circle-radius-transition': { duration: isPulseOut ? PULSE_MS : 0, delay: 0 },
+              'circle-opacity-transition': { duration: isPulseOut ? PULSE_MS : 0, delay: 0 },
+              'circle-stroke-opacity-transition': { duration: isPulseOut ? PULSE_MS : 0, delay: 0 },
+            }}
+          />
+          <Layer
+            type="symbol"
+            id="report-pins"
+            source="reports"
+            layout={{
+              // "paw-critical" and so on: one picture per urgency, already in its color.
+              'icon-image': ['concat', 'paw-', ['get', 'urgency']],
+              'icon-size': [
                 'match',
                 ['get', 'urgency'],
                 'critical',
-                PIN_RADIUS.critical,
+                PAW_SCALE.critical,
                 'needs_help_soon',
-                PIN_RADIUS.needs_help_soon,
-                PIN_RADIUS.just_sighted,
+                PAW_SCALE.needs_help_soon,
+                PAW_SCALE.just_sighted,
               ],
-              // The white edge keeps a pin apart from any street color under it.
-              'circle-stroke-width': 2,
-              'circle-stroke-color': PIN_EDGE,
+              // Every report is drawn, also where paws overlap. The map would otherwise hide some
+              // to keep them apart, and a hidden report is a missed animal.
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+              // The most urgent paw is drawn on top where they overlap.
+              'symbol-sort-key': [
+                'match',
+                ['get', 'urgency'],
+                'critical',
+                3,
+                'needs_help_soon',
+                2,
+                1,
+              ],
             }}
           />
         </GeoJSONSource>
@@ -280,7 +354,7 @@ function NearbyMap() {
             <View key={urgency.value} style={styles.legendItem}>
               {/* A thin line between one meaning and the next. */}
               {index > 0 && <View style={[styles.legendRule, { backgroundColor: border }]} />}
-              <View style={[styles.legendDot, { backgroundColor: URGENCY_COLORS[urgency.value] }]} />
+              <Image source={PAW_IMAGES[`paw-${urgency.value}`]} style={styles.legendPaw} />
               <ThemedText style={styles.legendLabel}>{urgency.label}</ThemedText>
             </View>
           ))}
@@ -308,6 +382,17 @@ function NearbyMap() {
           <HugeiconsIcon icon={Gps01Icon} size={24} color={foreground} />
         )}
       </Pressable>
+
+      <ReportPreview
+        report={selected}
+        isOpen={isPreviewOpen && !!selected}
+        onClose={() => setIsPreviewOpen(false)}
+        onView={(report) => {
+          // Closed first, so the drawer is not left hanging over the report page.
+          setIsPreviewOpen(false);
+          router.push({ pathname: '/report/[id]', params: { id: report.id } });
+        }}
+      />
 
       <Text style={styles.credit}>© OpenStreetMap contributors</Text>
     </View>
@@ -389,12 +474,9 @@ const styles = StyleSheet.create({
     height: 12,
     marginRight: Spacing.half,
   },
-  legendDot: {
-    width: LEGEND_DOT,
-    height: LEGEND_DOT,
-    borderRadius: LEGEND_DOT / 2,
-    borderWidth: 1.5,
-    borderColor: PIN_EDGE,
+  legendPaw: {
+    width: LEGEND_PAW,
+    height: LEGEND_PAW,
   },
   legendLabel: {
     fontSize: 12,

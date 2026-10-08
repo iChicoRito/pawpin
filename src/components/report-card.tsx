@@ -14,7 +14,7 @@ const PHOTO_SIZE = 64;
 
 // The word's color steps up with the urgency. The least urgent stays neutral, so a list of
 // sightings does not shout.
-const URGENCY_CHIP: Record<ReportUrgency, 'danger' | 'warning' | 'default'> = {
+export const URGENCY_CHIP: Record<ReportUrgency, 'danger' | 'warning' | 'default'> = {
   critical: 'danger',
   needs_help_soon: 'warning',
   just_sighted: 'default',

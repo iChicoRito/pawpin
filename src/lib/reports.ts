@@ -92,6 +92,17 @@ export type ReportDraft = ReportPlace & {
   urgency: ReportUrgency | null;
 };
 
+/**
+ * What to show for a saved value: its label from a choice list, or the value itself when the
+ * reporter typed it after choosing "Other". Empty when nothing was saved.
+ */
+export function labelFor(
+  options: readonly { value: string; label: string }[],
+  value: string | null
+) {
+  return options.find((option) => option.value === value)?.label ?? value ?? '';
+}
+
 /** The animal as saved: "dog", "cat", or the typed kind when the reporter chose "Other". */
 export function animalOf(draft: ReportDraft) {
   return (draft.animalType === 'other' && draft.otherAnimal?.trim()) || draft.animalType;
