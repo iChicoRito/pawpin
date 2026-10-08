@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '@/global.css';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { NearbyReportsProvider } from '@/hooks/use-nearby-reports';
 import { SessionProvider, useSession } from '@/hooks/use-session';
 
 SplashScreen.preventAutoHideAsync();
@@ -18,7 +19,9 @@ export default function RootLayout() {
       <HeroUINativeProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <SessionProvider>
-            <RootNavigator />
+            <NearbyReportsProvider>
+              <RootNavigator />
+            </NearbyReportsProvider>
           </SessionProvider>
         </ThemeProvider>
       </HeroUINativeProvider>

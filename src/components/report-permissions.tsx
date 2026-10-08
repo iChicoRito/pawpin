@@ -90,7 +90,7 @@ type PermissionRowProps = {
   onAllow: () => Promise<PermissionResponse>;
 };
 
-function PermissionRow({ icon, name, title, reason, permission, onAllow }: PermissionRowProps) {
+export function PermissionRow({ icon, name, title, reason, permission, onAllow }: PermissionRowProps) {
   const [foreground, accent] = useThemeColor(['foreground', 'accent']);
   // The phone will not show its prompt again, so the only way left is its settings.
   const isBlocked = !permission.granted && !permission.canAskAgain;
