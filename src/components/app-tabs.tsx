@@ -7,7 +7,7 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
 import { usePathname } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, TabTriggerSlotProps, Tabs } from 'expo-router/ui';
 import { useThemeColor } from 'heroui-native';
-import { useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewProps } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -43,6 +43,31 @@ const TABS: readonly {
   { name: 'profile', href: '/profile', label: 'Profile', icon: UserIcon },
 ];
 
+// A screen that needs the whole display (the report camera) hides the bar while it is in view.
+let isBarHidden = false;
+const barListeners = new Set<() => void>();
+
+function setBarHidden(next: boolean) {
+  isBarHidden = next;
+  barListeners.forEach((listener) => listener());
+}
+
+function watchBar(listener: () => void) {
+  barListeners.add(listener);
+  return () => {
+    barListeners.delete(listener);
+  };
+}
+
+/** Hides the bottom tab bar for as long as `isHidden` is true and the calling screen is on screen. */
+export function useHideTabBar(isHidden: boolean) {
+  useEffect(() => {
+    if (!isHidden) return;
+    setBarHidden(true);
+    return () => setBarHidden(false);
+  }, [isHidden]);
+}
+
 export default function AppTabs() {
   return (
     <Tabs style={styles.root}>
@@ -68,6 +93,7 @@ function TabBar({ style, children, ...props }: ViewProps) {
   const insets = useSafeAreaInsets();
   const [surface, border, accent] = useThemeColor(['surface', 'border', 'accent']);
   const [rowWidth, setRowWidth] = useState(0);
+  const isHidden = useSyncExternalStore(watchBar, () => isBarHidden);
 
   const pathname = usePathname();
   // Screens opened inside a tab (for example /report/form) keep that tab selected.
@@ -94,6 +120,8 @@ function TabBar({ style, children, ...props }: ViewProps) {
         style,
         styles.bar,
         { backgroundColor: surface, borderTopColor: border, paddingBottom: insets.bottom },
+        // Hidden, not removed: the tab buttons inside must stay mounted for the tabs to work.
+        isHidden && styles.hidden,
       ]}>
       <View style={styles.row} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
         {rowWidth > 0 && (
@@ -164,6 +192,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'center',
+  },
+  hidden: {
+    display: 'none',
   },
   row: {
     flexDirection: 'row',

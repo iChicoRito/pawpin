@@ -6,7 +6,7 @@ import { useCameraPermissions } from 'expo-camera';
 import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
 import type { PermissionResponse } from 'expo-modules-core';
-import { Button, useThemeColor } from 'heroui-native';
+import { Button, Spinner, useThemeColor } from 'heroui-native';
 import { useEffect, type PropsWithChildren } from 'react';
 import { AppState, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,8 +32,14 @@ export function ReportPermissions({ children }: PropsWithChildren) {
     return () => subscription.remove();
   }, [refreshCamera, refreshLocation]);
 
-  // Still reading the saved answers. Showing nothing avoids a flash of the cards for a returning user.
-  if (!camera || !location) return <ThemedView style={styles.container} />;
+  // Still reading the saved answers. The cards wait, so a returning user never sees them flash by.
+  if (!camera || !location) {
+    return (
+      <ThemedView style={[styles.container, styles.loading]}>
+        <Spinner />
+      </ThemedView>
+    );
+  }
 
   if (camera.granted && location.granted) return children;
 
@@ -133,6 +139,10 @@ function PermissionRow({ icon, name, title, reason, permission, onAllow }: Permi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loading: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Same column as the Profile tab, so the tabs share one left and right edge.
   content: {

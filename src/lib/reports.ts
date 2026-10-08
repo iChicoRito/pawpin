@@ -27,14 +27,34 @@ export const CONDITIONS = [
   { value: 'injured', label: 'Injured' },
   { value: 'sick', label: 'Sick' },
   { value: 'healthy', label: 'Looks healthy' },
-  { value: 'unsure', label: 'Not sure' },
+] as const;
+
+// Coat colors and the common mixes. The value is saved as it reads, so a rescuer's list needs no lookup.
+export const COLORS = [
+  { value: 'black', label: 'Black' },
+  { value: 'white', label: 'White' },
+  { value: 'brown', label: 'Brown' },
+  { value: 'gray', label: 'Gray' },
+  { value: 'orange', label: 'Orange' },
+  { value: 'cream', label: 'Cream' },
+  { value: 'black and white', label: 'Black and white' },
+  { value: 'brown and white', label: 'Brown and white' },
+  { value: 'orange and white', label: 'Orange and white' },
+  { value: 'gray and white', label: 'Gray and white' },
+  { value: 'black and brown', label: 'Black and brown' },
+  { value: 'three colors', label: 'Three colors' },
+  { value: 'other', label: 'Other' },
 ] as const;
 
 // Values match the report_urgency type in the database.
-export const URGENCIES: readonly { value: ReportUrgency; label: string }[] = [
-  { value: 'critical', label: 'Critical' },
-  { value: 'needs_help_soon', label: 'Needs help soon' },
-  { value: 'just_sighted', label: 'Just sighted' },
+export const URGENCIES: readonly { value: ReportUrgency; label: string; hint: string }[] = [
+  { value: 'critical', label: 'Critical', hint: 'Badly hurt or in danger right now.' },
+  {
+    value: 'needs_help_soon',
+    label: 'Needs help soon',
+    hint: 'Hurt, sick, or weak, but not in danger right now.',
+  },
+  { value: 'just_sighted', label: 'Just sighted', hint: 'Looks fine. Sharing where it was seen.' },
 ];
 
 /** Where the phone was at one moment. */
@@ -61,12 +81,26 @@ export type ReportDraft = ReportPlace & {
   id: string;
   photos: ReportPhoto[];
   animalType: string;
+  /** What the reporter typed after choosing "Other". Missing on reports kept by an older version. */
+  otherAnimal?: string;
   size: string;
   color: string;
+  /** What the reporter typed after choosing "Other" as the color. */
+  otherColor?: string;
   condition: string;
   landmark: string;
   urgency: ReportUrgency | null;
 };
+
+/** The animal as saved: "dog", "cat", or the typed kind when the reporter chose "Other". */
+export function animalOf(draft: ReportDraft) {
+  return (draft.animalType === 'other' && draft.otherAnimal?.trim()) || draft.animalType;
+}
+
+/** The color as saved: a listed color, or the typed one when the reporter chose "Other". */
+export function colorOf(draft: ReportDraft) {
+  return draft.color === 'other' ? (draft.otherColor?.trim() ?? '') : draft.color.trim();
+}
 
 /** A random id in the standard UUID shape, which the database's id column expects. */
 function newId() {
@@ -151,9 +185,9 @@ export async function submitReport(draft: ReportDraft, userId: string) {
     location_accuracy_m: draft.accuracyM,
     photo_taken_at: draft.photos[0].takenAt,
     photos: links,
-    animal_type: draft.animalType || null,
+    animal_type: animalOf(draft) || null,
     size: draft.size || null,
-    color: draft.color.trim() || null,
+    color: colorOf(draft) || null,
     condition: draft.condition || null,
     landmark: draft.landmark.trim() || null,
     urgency: draft.urgency,

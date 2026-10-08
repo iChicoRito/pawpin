@@ -419,7 +419,7 @@ function Controls() {
       <Demo name="Select">
         {(['popover', 'bottom-sheet', 'dialog'] as const).map((presentation) => (
           <Group key={presentation} label={`presentation: ${presentation}`} column>
-            <Select>
+            <Select presentation={presentation}>
               <Select.Trigger>
                 <Select.Value placeholder="Choose an option" />
                 <Select.TriggerIndicator />

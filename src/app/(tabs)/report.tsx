@@ -1,3 +1,4 @@
+import { Spinner } from 'heroui-native';
 import { useEffect, useState } from 'react';
 
 import { ReportCamera } from '@/components/report-camera';
@@ -30,8 +31,14 @@ export default function ReportScreen() {
     };
   }, [userId]);
 
-  // Showing nothing for a moment avoids opening the camera and then swapping it for the kept report.
-  if (unsent === undefined) return <ThemedView style={{ flex: 1 }} />;
+  // Waiting here avoids opening the camera and then swapping it for the kept report.
+  if (unsent === undefined) {
+    return (
+      <ThemedView style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Spinner />
+      </ThemedView>
+    );
+  }
 
   // One unsent report at a time: the camera stays shut until this one is sent or discarded.
   if (unsent) return <ReportUnsent draft={unsent} onGone={() => setUnsent(null)} />;

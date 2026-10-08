@@ -1,19 +1,36 @@
-import Tick02Icon from '@hugeicons/core-free-icons/Tick02Icon';
-import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Camera, Map } from '@maplibre/maplibre-react-native';
-import { Image } from 'expo-image';
-import { Alert, Button, Input, Label, RadioGroup, TextField, useThemeColor } from 'heroui-native';
-import { useState } from 'react';
+import {
+  Alert,
+  Button,
+  Card,
+  Description,
+  FieldError,
+  Input,
+  Label,
+  Radio,
+  RadioGroup,
+  Select,
+  Skeleton,
+  Spinner,
+  Tabs,
+  TagGroup,
+  TextField,
+  useThemeColor,
+  useToast,
+} from 'heroui-native';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { PhotoThumb } from '@/components/report-photo';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { ReportSent, type PhotoSizes } from '@/components/report-sent';
+import { ReportSent, ToastIcon } from '@/components/report-sent';
 import { useSession } from '@/hooks/use-session';
 import {
   ANIMAL_TYPES,
+  COLORS,
   CONDITIONS,
   GUEST_LIMIT_ERROR,
   POOR_ACCURACY_M,
@@ -28,11 +45,12 @@ import {
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 /** Close enough to tell one gate or corner from the next. */
 const STREET_ZOOM = 17;
-const MAP_HEIGHT = 220;
+const MAP_HEIGHT = 200;
+const OTHER_MAX_LENGTH = 40;
 const COLOR_MAX_LENGTH = 40;
 const LANDMARK_MAX_LENGTH = 120;
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; hint?: string };
 
 type ReportFormProps = {
   draft: ReportDraft;
@@ -49,37 +67,87 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(fromCamera);
   const [mapFailed, setMapFailed] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
   const { session } = useSession();
   const [status, setStatus] = useState<SendStatus>('idle');
-  const [photoSizes, setPhotoSizes] = useState<PhotoSizes>([]);
+  const [border, accentForeground] = useThemeColor(['border', 'accent-foreground']);
 
   const update = (changes: Partial<ReportDraft>) => setDraft({ ...draft, ...changes });
   const isSending = status === 'sending';
-  const isComplete = draft.animalType !== '' && draft.urgency !== null;
+  const { toast } = useToast();
+  const scroll = useRef<ScrollView>(null);
+  // How far down the page the first card starts. The map above it scrolls with the page.
+  const firstCardY = useRef(0);
+  // Problems are worked out all the time but only shown after the first press on Submit.
+  const [wasTried, setWasTried] = useState(false);
+  const problems = {
+    animal: draft.animalType === '' ? 'Choose the animal.' : undefined,
+    other:
+      draft.animalType === 'other' && !draft.otherAnimal?.trim()
+        ? 'Type what kind of animal it is.'
+        : undefined,
+    urgency: draft.urgency === null ? 'Choose how urgent it is.' : undefined,
+    color: draft.color === 'other' && !draft.otherColor?.trim() ? 'Type the color.' : undefined,
+  };
+  const errors: Partial<typeof problems> = wasTried ? problems : {};
 
   async function send() {
     if (!session) return;
+    if (problems.animal || problems.other || problems.urgency) {
+      setWasTried(true);
+      // These fields are in the first card.
+      scroll.current?.scrollTo({ y: firstCardY.current });
+      return;
+    }
+    if (problems.color) {
+      setWasTried(true);
+      return;
+    }
     setStatus('sending');
     try {
-      setPhotoSizes(await submitReport(draft, session.user.id));
+      await submitReport(draft, session.user.id);
+      toast.show({
+        variant: 'success',
+        label: 'Report sent',
+        icon: <ToastIcon status="success" />,
+      });
       setStatus('sent');
     } catch (error) {
       if (error instanceof Error && error.message === GUEST_LIMIT_ERROR) {
+        toast.show({
+          variant: 'danger',
+          icon: <ToastIcon status="danger" />,
+          label: 'Report not sent',
+          description: 'Guests can send 3 reports in 24 hours.',
+        });
         setStatus('limit');
         return;
       }
       console.warn('Sending the report failed:', error);
       try {
-        onUnsent(await saveUnsentReport(draft, session.user.id));
+        const kept = await saveUnsentReport(draft, session.user.id);
+        toast.show({
+          variant: 'danger',
+          icon: <ToastIcon status="danger" />,
+          label: 'Report not sent',
+          description: 'It is saved on this phone.',
+        });
+        onUnsent(kept);
       } catch (saveError) {
         // Could not keep it either. The form stays filled in so Submit can be tried again.
         console.warn('Keeping the report on the phone failed:', saveError);
+        toast.show({
+          variant: 'danger',
+          icon: <ToastIcon status="danger" />,
+          label: 'Report not sent',
+          description: 'Check your connection and try again.',
+        });
         setStatus('failed');
       }
     }
   }
 
-  if (status === 'sent') return <ReportSent photoSizes={photoSizes} onDone={onRetake} />;
+  if (status === 'sent') return <ReportSent draft={draft} onDone={onRetake} />;
 
   // Judged on the reading from the camera, so the notice does not vanish once the pin is moved.
   const isRough = fromCamera.accuracyM != null && fromCamera.accuracyM > POOR_ACCURACY_M;
@@ -87,32 +155,42 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView behavior="padding" style={styles.container}>
-        <View style={styles.column}>
-          <ThemedText type="smallBold" role="heading" style={styles.heading}>
-            Where is the animal?
-          </ThemedText>
+        <ScrollView
+          ref={scroll}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.column, styles.fields]}>
+          <View style={styles.intro}>
+            <ThemedText role="heading" style={styles.title}>
+              Where is the animal?
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Move the map until the pin is on the exact spot.
+            </ThemedText>
+          </View>
 
           {isRough && (
-            <Alert status="warning" style={styles.notice}>
+            <Alert status="warning">
               <Alert.Indicator />
               <Alert.Content>
                 <Alert.Title>Check the pin</Alert.Title>
                 <Alert.Description>
-                  Location may be off by about {Math.round(fromCamera.accuracyM ?? 0)} m. Move the
-                  map until the pin is on the exact spot.
+                  Location may be off by about {Math.round(fromCamera.accuracyM ?? 0)} m.
                 </Alert.Description>
               </Alert.Content>
             </Alert>
           )}
 
           {mapFailed ? (
-            <ThemedView type="backgroundElement" role="alert" style={[styles.map, styles.mapMessage]}>
+            <ThemedView
+              type="backgroundElement"
+              role="alert"
+              style={[styles.map, styles.mapMessage, { borderColor: border }]}>
               <ThemedText type="small" style={styles.centered}>
                 The map could not load. The location from your photo is still saved.
               </ThemedText>
             </ThemedView>
           ) : (
-            <View style={styles.map}>
+            <View style={[styles.map, { borderColor: border }]}>
               <Map
                 style={styles.container}
                 mapStyle={MAP_STYLE}
@@ -121,6 +199,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
                 touchRotate={false}
                 touchPitch={false}
                 onDidFailLoadingMap={() => setMapFailed(true)}
+                onDidFinishLoadingMap={() => setIsMapReady(true)}
                 onRegionDidChange={(event) => {
                   const { center, userInteraction } = event.nativeEvent;
                   // The map also reports its own first placement; only the reporter's moves count.
@@ -134,6 +213,8 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
                   }}
                 />
               </Map>
+              {/* Covers the empty grey box until the streets are drawn. */}
+              {!isMapReady && <Skeleton className="absolute inset-0" />}
               {/* The pin never moves; the map slides under it. Its tip marks the exact middle. */}
               <View pointerEvents="none" style={styles.pinLayer}>
                 <View style={styles.pin}>
@@ -141,101 +222,167 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
                   <View style={styles.pinStem} />
                 </View>
               </View>
+              <Text style={styles.credit}>© OpenStreetMap contributors</Text>
             </View>
           )}
 
-          <ThemedText type="small" themeColor="textSecondary">
-            Move the map until the pin is on the exact spot.
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            © OpenStreetMap contributors
-          </ThemedText>
-        </View>
-
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[styles.column, styles.fields]}>
-          <View style={styles.photos}>
-            {draft.photos.map((photo) => (
-              <Image key={photo.uri} source={{ uri: photo.uri }} style={styles.photo} />
+          <View
+            role="group"
+            aria-label={draft.photos.length === 1 ? '1 photo' : `${draft.photos.length} photos`}
+            style={styles.photos}>
+            {draft.photos.map((photo, index) => (
+              <PhotoThumb
+                key={photo.uri}
+                uri={photo.uri}
+                label={`Photo ${index + 1}`}
+                style={styles.photo}
+              />
             ))}
           </View>
 
-          <ThemedText type="smallBold" role="heading">
-            About the animal
-          </ThemedText>
-
-          <Choice
-            label="Animal"
-            isRequired
-            options={ANIMAL_TYPES}
-            value={draft.animalType}
-            onChange={(animalType) => update({ animalType })}
-          />
-          <Choice
-            label="How urgent"
-            isRequired
-            options={URGENCIES}
-            value={draft.urgency ?? ''}
-            onChange={(value) =>
-              update({ urgency: URGENCIES.find((urgency) => urgency.value === value)?.value ?? null })
-            }
-          />
-          <Choice
-            label="Condition"
-            options={CONDITIONS}
-            value={draft.condition}
-            onChange={(condition) => update({ condition })}
-          />
-          <Choice
-            label="Size"
-            options={SIZES}
-            value={draft.size}
-            onChange={(size) => update({ size })}
-          />
-
-          <TextField>
-            <Label>Color</Label>
-            <Input
-              value={draft.color}
-              onChangeText={(color) => update({ color })}
-              maxLength={COLOR_MAX_LENGTH}
-              placeholder="Brown with white paws"
+          <Card
+            variant="default"
+            style={styles.card}
+            onLayout={(event) => {
+              firstCardY.current = event.nativeEvent.layout.y;
+            }}>
+            <View style={styles.cardHead}>
+              <Card.Title role="heading">About the animal</Card.Title>
+              <Card.Description>Rescuers use this to decide how fast to come.</Card.Description>
+            </View>
+            <Choice
+              label="Animal"
+              kind="segments"
+              isRequired
+              options={ANIMAL_TYPES}
+              value={draft.animalType}
+              onChange={(animalType) => update({ animalType })}
+              error={errors.animal}
             />
-          </TextField>
-          <TextField>
-            <Label>Landmark</Label>
-            <Input
-              value={draft.landmark}
-              onChangeText={(landmark) => update({ landmark })}
-              maxLength={LANDMARK_MAX_LENGTH}
-              placeholder="Near the blue gate beside the bakery"
+            {draft.animalType === 'other' && (
+              <TextField isRequired isInvalid={!!errors.other}>
+                <Label>What kind of animal?</Label>
+                <Input
+                  variant="secondary"
+                  value={draft.otherAnimal ?? ''}
+                  onChangeText={(otherAnimal) => update({ otherAnimal })}
+                  maxLength={OTHER_MAX_LENGTH}
+                  placeholder="Rabbit"
+                />
+                {errors.other && <FieldError>{errors.other}</FieldError>}
+              </TextField>
+            )}
+            <Choice
+              label="How urgent"
+              kind="list"
+              isRequired
+              options={URGENCIES}
+              value={draft.urgency ?? ''}
+              onChange={(value) =>
+                update({
+                  urgency: URGENCIES.find((urgency) => urgency.value === value)?.value ?? null,
+                })
+              }
+              error={errors.urgency}
             />
-          </TextField>
+          </Card>
+
+          <Card variant="default" style={styles.card}>
+            <View style={styles.cardHead}>
+              <Card.Title role="heading">More details (optional)</Card.Title>
+              <Card.Description>Helps rescuers recognise the animal.</Card.Description>
+            </View>
+            <Choice
+              label="Condition"
+              kind="tags"
+              options={CONDITIONS}
+              value={draft.condition}
+              onChange={(condition) => update({ condition })}
+            />
+            <Choice
+              label="Size"
+              kind="segments"
+              options={SIZES}
+              value={draft.size}
+              onChange={(size) => update({ size })}
+            />
+            <View style={styles.choice}>
+              <ThemedText type="small">Color</ThemedText>
+              <Select
+                // Must be the same word as on Select.Content below, or HeroUI throws.
+                presentation="bottom-sheet"
+                value={COLORS.find((color) => color.value === draft.color)}
+                onValueChange={(color) => update({ color: color?.value ?? '' })}>
+                {/* On a card a field takes the grey fill, as Input does with variant="secondary".
+                    Select has no such variant, so the same color is set by class. */}
+                <Select.Trigger aria-label="Color" className="bg-default">
+                  <Select.Value placeholder="Choose a color" />
+                  <Select.TriggerIndicator />
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Overlay />
+                  <Select.Content presentation="bottom-sheet">
+                    {COLORS.map((color) => (
+                      <Select.Item key={color.value} value={color.value} label={color.label} />
+                    ))}
+                  </Select.Content>
+                </Select.Portal>
+              </Select>
+            </View>
+            {draft.color === 'other' && (
+              <TextField isRequired isInvalid={!!errors.color}>
+                <Label>What color?</Label>
+                <Input
+                  variant="secondary"
+                  value={draft.otherColor ?? ''}
+                  onChangeText={(otherColor) => update({ otherColor })}
+                  maxLength={COLOR_MAX_LENGTH}
+                  placeholder="Brown with white paws"
+                />
+                {errors.color && <FieldError>{errors.color}</FieldError>}
+              </TextField>
+            )}
+            <TextField>
+              <Label>Landmark</Label>
+              <Input
+                variant="secondary"
+                value={draft.landmark}
+                onChangeText={(landmark) => update({ landmark })}
+                maxLength={LANDMARK_MAX_LENGTH}
+                placeholder="Near the blue gate beside the bakery"
+              />
+            </TextField>
+          </Card>
 
           {status === 'limit' && (
-            <ThemedText type="small" role="alert">
-              Guests can send 3 reports in 24 hours. Sign in with Google on the Profile tab to send
-              more.
-            </ThemedText>
+            <Alert status="danger" role="alert">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Description>
+                  Guests can send 3 reports in 24 hours. Sign in with Google on the Profile tab to
+                  send more.
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
           )}
           {status === 'failed' && (
-            <ThemedText type="small" role="alert">
-              Could not send the report. Check your connection and try again.
-            </ThemedText>
-          )}
-          {!isComplete && (
-            <ThemedText type="small" themeColor="textSecondary">
-              Choose the animal and how urgent it is to continue.
-            </ThemedText>
+            <Alert status="danger" role="alert">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Description>
+                  Could not send the report. Check your connection and try again.
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
           )}
           <View style={styles.actions}>
+            {/* Disabled while sending, so a second tap cannot send the report twice. */}
+            <Button isDisabled={isSending} onPress={send}>
+              {isSending && <Spinner size="sm" color={accentForeground} />}
+              <Button.Label>{isSending ? 'Sending…' : 'Submit'}</Button.Label>
+            </Button>
             <Button variant="secondary" isDisabled={isSending} onPress={onRetake}>
               Retake
-            </Button>
-            {/* Disabled while sending, so a second tap cannot send the report twice. */}
-            <Button isDisabled={!isComplete || isSending} onPress={send}>
-              {isSending ? 'Sending…' : 'Submit'}
             </Button>
           </View>
         </ScrollView>
@@ -246,53 +393,88 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
 
 type ChoiceProps = {
   label: string;
+  /**
+   * How the answers are drawn. `segments`: one bar split in equal parts, for a few short answers.
+   * `list`: one answer per line with a line of help. `tags`: small pills that wrap.
+   */
+  kind: 'segments' | 'list' | 'tags';
   isRequired?: boolean;
   options: readonly Option[];
   value: string;
   onChange: (value: string) => void;
+  /** Shown under the answers when the question was left empty. */
+  error?: string;
 };
 
-/** One question with a few answers, laid out side by side so four questions fit on one screen. */
-function Choice({ label, isRequired, options, value, onChange }: ChoiceProps) {
-  const [accent, accentForeground, border, foreground] = useThemeColor([
-    'accent',
-    'accent-foreground',
-    'border',
-    'foreground',
-  ]);
+/** One question with a few answers. */
+function Choice({ label, kind, isRequired, options, value, onChange, error }: ChoiceProps) {
+  const danger = useThemeColor('danger');
+  const name = isRequired ? `${label}, required` : label;
 
   return (
     <View style={styles.choice}>
       <ThemedText type="small">
         {label}
-        {isRequired ? ' (required)' : ''}
+        {/* Same mark as HeroUI puts on a required text field. Screen readers get the word below. */}
+        {isRequired && (
+          <Text aria-hidden style={{ color: danger }}>
+            {' *'}
+          </Text>
+        )}
       </ThemedText>
-      <RadioGroup
-        aria-label={label}
-        value={value || undefined}
-        onValueChange={onChange}
-        className="flex-row flex-wrap gap-2">
-        {options.map((option) => (
-          <RadioGroup.Item key={option.value} value={option.value}>
-            {({ isSelected }) => (
-              <View
-                style={[
-                  styles.pill,
-                  {
-                    borderColor: isSelected ? accent : border,
-                    backgroundColor: isSelected ? accent : 'transparent',
-                  },
-                ]}>
-                {/* The tick marks the choice for people who cannot tell it by color. */}
-                {isSelected && <HugeiconsIcon icon={Tick02Icon} size={16} color={accentForeground} />}
-                <Text style={[styles.pillLabel, { color: isSelected ? accentForeground : foreground }]}>
-                  {option.label}
-                </Text>
+
+      {kind === 'segments' && (
+        <Tabs aria-label={name} value={value} onValueChange={onChange}>
+          {/* Stretched across the card, with every part the same width. */}
+          <Tabs.List className="self-stretch">
+            <Tabs.Indicator />
+            {options.map((option) => (
+              <Tabs.Trigger key={option.value} value={option.value} className="flex-1">
+                <Tabs.Label>{option.label}</Tabs.Label>
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+        </Tabs>
+      )}
+
+      {kind === 'list' && (
+        <RadioGroup
+          aria-label={name}
+          value={value || undefined}
+          onValueChange={onChange}
+          isInvalid={!!error}
+          className="gap-4">
+          {options.map((option) => (
+            <RadioGroup.Item key={option.value} value={option.value}>
+              <View style={styles.container}>
+                <Label>{option.label}</Label>
+                {option.hint && <Description>{option.hint}</Description>}
               </View>
-            )}
-          </RadioGroup.Item>
-        ))}
-      </RadioGroup>
+              <Radio />
+            </RadioGroup.Item>
+          ))}
+        </RadioGroup>
+      )}
+
+      {kind === 'tags' && (
+        <TagGroup
+          aria-label={name}
+          selectionMode="single"
+          size="lg"
+          selectedKeys={value ? [value] : []}
+          // Tapping the chosen tag again clears it, which suits a question nobody has to answer.
+          onSelectionChange={(keys) => onChange(String([...keys][0] ?? ''))}>
+          <TagGroup.List>
+            {options.map((option) => (
+              <TagGroup.Item key={option.value} id={option.value}>
+                {option.label}
+              </TagGroup.Item>
+            ))}
+          </TagGroup.List>
+        </TagGroup>
+      )}
+
+      {error && <FieldError isInvalid>{error}</FieldError>}
     </View>
   );
 }
@@ -312,16 +494,34 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.four,
   },
-  heading: {
-    marginTop: Spacing.three,
+  intro: {
+    gap: Spacing.half,
   },
-  notice: {
-    marginBottom: Spacing.one,
+  // Same size as the name on the Profile tab.
+  title: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: 600,
   },
+  // The border keeps a pale map from running into a white page.
   map: {
     height: MAP_HEIGHT,
     borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+  },
+  // Fixed colors for the same reason as the pin.
+  credit: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderTopLeftRadius: Spacing.two,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    color: '#1F1F1F',
+    fontSize: 11,
+    lineHeight: 16,
   },
   mapMessage: {
     alignItems: 'center',
@@ -362,38 +562,30 @@ const styles = StyleSheet.create({
   fields: {
     gap: Spacing.three,
     paddingTop: Spacing.three,
-    paddingBottom: Spacing.five,
+    paddingBottom: Spacing.three,
   },
   photos: {
     flexDirection: 'row',
     gap: Spacing.two,
   },
   photo: {
-    width: 56,
-    height: 56,
+    width: 64,
+    height: 64,
     borderRadius: Spacing.two,
   },
-  choice: {
-    gap: Spacing.two,
+  // Same surface, padding, and corner as the cards on the Profile tab.
+  // Padding, corner, and background come from HeroUI Card. The gap between questions is wider
+  // than the gap inside one, so each reads as its own group.
+  card: {
+    gap: Spacing.four,
   },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    // 44 px tall: the smallest size a thumb hits reliably.
-    minHeight: 44,
-    paddingHorizontal: Spacing.three,
-    borderWidth: 1,
-    borderRadius: 22,
-  },
-  pillLabel: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: 500,
+  cardHead: {
+    gap: Spacing.half,
   },
   actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    gap: Spacing.two,
+  },
+  choice: {
     gap: Spacing.two,
   },
 });
