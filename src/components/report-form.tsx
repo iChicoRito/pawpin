@@ -10,12 +10,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { ReportSent, type PhotoSizes } from '@/components/report-sent';
 import { useSession } from '@/hooks/use-session';
 import {
   ANIMAL_TYPES,
   CONDITIONS,
   GUEST_LIMIT_ERROR,
   POOR_ACCURACY_M,
+  saveUnsentReport,
   SIZES,
   submitReport,
   URGENCIES,
@@ -36,25 +38,20 @@ type ReportFormProps = {
   draft: ReportDraft;
   /** Drops this report and goes back to the camera. Also used after a report is sent. */
   onRetake: () => void;
+  /** The send failed and the report is now kept on the phone. */
+  onUnsent: (kept: ReportDraft) => void;
 };
 
 type SendStatus = 'idle' | 'sending' | 'sent' | 'limit' | 'failed';
 
-/** 3481234 becomes "3.3 MB"; 181234 becomes "177 KB". */
-function readableSize(bytes: number) {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
-    : `${Math.round(bytes / 1024)} KB`;
-}
-
 /** The reporter checks the pin, then says what the animal is and how fast help is needed. */
-export function ReportForm({ draft: fromCamera, onRetake }: ReportFormProps) {
+export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportFormProps) {
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(fromCamera);
   const [mapFailed, setMapFailed] = useState(false);
   const { session } = useSession();
   const [status, setStatus] = useState<SendStatus>('idle');
-  const [photoSizes, setPhotoSizes] = useState<{ before: number; after: number }[]>([]);
+  const [photoSizes, setPhotoSizes] = useState<PhotoSizes>([]);
 
   const update = (changes: Partial<ReportDraft>) => setDraft({ ...draft, ...changes });
   const isSending = status === 'sending';
@@ -67,34 +64,23 @@ export function ReportForm({ draft: fromCamera, onRetake }: ReportFormProps) {
       setPhotoSizes(await submitReport(draft, session.user.id));
       setStatus('sent');
     } catch (error) {
-      const isLimit = error instanceof Error && error.message === GUEST_LIMIT_ERROR;
-      if (!isLimit) console.warn('Sending the report failed:', error);
-      setStatus(isLimit ? 'limit' : 'failed');
+      if (error instanceof Error && error.message === GUEST_LIMIT_ERROR) {
+        setStatus('limit');
+        return;
+      }
+      console.warn('Sending the report failed:', error);
+      try {
+        onUnsent(await saveUnsentReport(draft, session.user.id));
+      } catch (saveError) {
+        // Could not keep it either. The form stays filled in so Submit can be tried again.
+        console.warn('Keeping the report on the phone failed:', saveError);
+        setStatus('failed');
+      }
     }
   }
 
-  if (status === 'sent') {
-    return (
-      <ThemedView style={[styles.container, styles.sent, { paddingTop: insets.top }]}>
-        <ThemedText type="subtitle" role="heading">
-          Report sent
-        </ThemedText>
-        <ThemedText themeColor="textSecondary" style={styles.centered}>
-          Thank you. The report is saved with its photos and exact location.
-        </ThemedText>
-        {/* Development builds only: proof that photos were shrunk before sending. */}
-        {__DEV__ &&
-          photoSizes.map((size, index) => (
-            <ThemedText key={index} type="small" themeColor="textSecondary">
-              Photo {index + 1}: {readableSize(size.before)} sent as {readableSize(size.after)}
-            </ThemedText>
-          ))}
-        <Button style={styles.sentAction} onPress={onRetake}>
-          Report another
-        </Button>
-      </ThemedView>
-    );
-  }
+  if (status === 'sent') return <ReportSent photoSizes={photoSizes} onDone={onRetake} />;
+
   // Judged on the reading from the camera, so the notice does not vanish once the pin is moved.
   const isRough = fromCamera.accuracyM != null && fromCamera.accuracyM > POOR_ACCURACY_M;
 
@@ -409,14 +395,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: Spacing.two,
-  },
-  sent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    padding: Spacing.four,
-  },
-  sentAction: {
-    marginTop: Spacing.three,
   },
 });

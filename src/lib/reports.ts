@@ -1,4 +1,5 @@
-import { File } from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Directory, File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import { supabase } from '@/lib/supabase';
@@ -53,7 +54,10 @@ export type ReportPhoto = {
 
 /** A report as it exists on the phone before it is sent. */
 export type ReportDraft = ReportPlace & {
-  /** Made once, with the first photo. Names the photo folder when the report is sent. */
+  /**
+   * Made once, with the first photo. It becomes the saved report's id and names its photo folder,
+   * so sending the same draft twice can never make a second report.
+   */
   id: string;
   photos: ReportPhoto[];
   animalType: string;
@@ -64,11 +68,21 @@ export type ReportDraft = ReportPlace & {
   urgency: ReportUrgency | null;
 };
 
+/** A random id in the standard UUID shape, which the database's id column expects. */
+function newId() {
+  // ponytail: Math.random is enough to keep two reports apart, and the access rules do the guarding.
+  // Use expo-crypto's randomUUID if ids ever need to be unguessable; that needs a new build.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (slot) => {
+    const digit = Math.floor(Math.random() * 16);
+    return (slot === 'x' ? digit : (digit & 0x3) | 0x8).toString(16);
+  });
+}
+
 /** Starts a draft from its first photo. The report's place is that photo's place and is never read again. */
 export function startDraft(photo: ReportPhoto): ReportDraft {
   return {
     ...photo.place,
-    id: Date.now().toString(),
+    id: newId(),
     photos: [photo],
     animalType: '',
     size: '',
@@ -106,6 +120,12 @@ async function shrinkPhoto(uri: string) {
 export async function submitReport(draft: ReportDraft, userId: string) {
   if (!draft.urgency) throw new Error('A report needs an urgency.');
 
+  // An earlier try may have saved the report without the phone hearing back. Asked first, not
+  // left to the database to refuse, because the guest limit would answer before that refusal.
+  const earlier = await supabase.from('reports').select('id').eq('id', draft.id).maybeSingle();
+  if (earlier.error) throw earlier.error;
+  if (earlier.data) return [];
+
   const links: string[] = [];
   const sizes: { before: number; after: number }[] = [];
 
@@ -124,6 +144,7 @@ export async function submitReport(draft: ReportDraft, userId: string) {
   }
 
   const { error } = await supabase.from('reports').insert({
+    id: draft.id,
     reporter_id: userId,
     // Longitude first. This is the pin's final place, after the reporter moved the map.
     location: `SRID=4326;POINT(${draft.longitude} ${draft.latitude})`,
@@ -142,4 +163,48 @@ export async function submitReport(draft: ReportDraft, userId: string) {
   }
 
   return sizes;
+}
+
+const UNSENT_KEY = 'pawpin.unsent-report';
+const unsentFolder = () => new Directory(Paths.document, 'unsent-report');
+
+/**
+ * Keeps a report that could not be sent, so it survives closing the app. One at a time.
+ * Returns the draft with its photos pointing at the kept copies.
+ */
+export async function saveUnsentReport(draft: ReportDraft, userId: string) {
+  const folder = unsentFolder();
+  if (folder.exists) folder.delete();
+  folder.create();
+
+  const photos: ReportPhoto[] = [];
+  for (const [index, photo] of draft.photos.entries()) {
+    // The camera's own files are temporary and the phone may delete them.
+    const kept = new File(folder, `${index + 1}.jpg`);
+    await new File(photo.uri).copy(kept);
+    photos.push({ ...photo, uri: kept.uri });
+  }
+
+  const saved: ReportDraft = { ...draft, photos };
+  await AsyncStorage.setItem(UNSENT_KEY, JSON.stringify({ userId, draft: saved }));
+  return saved;
+}
+
+/** The report kept on this phone for this user, if there is one. */
+export async function loadUnsentReport(userId: string): Promise<ReportDraft | null> {
+  const raw = await AsyncStorage.getItem(UNSENT_KEY);
+  if (!raw) return null;
+  try {
+    const saved = JSON.parse(raw);
+    // A report kept by someone else who used this phone is never sent under this account.
+    return saved.userId === userId ? saved.draft : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function discardUnsentReport() {
+  await AsyncStorage.removeItem(UNSENT_KEY);
+  const folder = unsentFolder();
+  if (folder.exists) folder.delete();
 }
