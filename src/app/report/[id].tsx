@@ -5,6 +5,7 @@ import Undo02Icon from '@hugeicons/core-free-icons/Undo02Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
 import { BlurTargetView, BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Avatar,
@@ -34,7 +35,6 @@ import { svg as wazeLogo } from 'thesvg/waze';
 import { BrandIcon } from '@/components/brand-icon';
 import { GoogleSignInDialog } from '@/components/google-sign-in-dialog';
 import { URGENCY_CHIP } from '@/components/report-card';
-import { PhotoThumb } from '@/components/report-photo';
 import { ReportPlaceMap } from '@/components/report-place-map';
 import { ToastIcon } from '@/components/report-sent';
 import { ThemedText } from '@/components/themed-text';
@@ -209,10 +209,13 @@ export default function ReportDetailScreen() {
                   setPhotoIndex(Math.round(event.nativeEvent.contentOffset.x / photoWidth))
                 }>
                 {report.photos.map((uri, index) => (
-                  <PhotoThumb
+                  // To look at, not to press: the photo is already as wide as the screen here.
+                  <Image
                     key={uri}
-                    uri={uri}
-                    label={`Photo ${index + 1}`}
+                    source={{ uri }}
+                    accessible
+                    role="img"
+                    aria-label={`Photo ${index + 1} of ${report.photos.length}`}
                     style={{ width: photoWidth, height: photoHeight }}
                   />
                 ))}

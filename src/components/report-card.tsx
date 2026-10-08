@@ -1,10 +1,11 @@
 import { Image } from 'expo-image';
-import { Button, Card, Chip, Skeleton } from 'heroui-native';
+import { Button, Card, Chip, Skeleton, useThemeColor } from 'heroui-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useSession } from '@/hooks/use-session';
 import { formatAge, formatDistance } from '@/lib/format';
 import type { NearbyReport } from '@/lib/nearby';
 import { ANIMAL_TYPES, URGENCIES, type ReportUrgency } from '@/lib/reports';
@@ -35,10 +36,15 @@ export function ReportCard({ report, onPress }: ReportCardProps) {
   const distance = formatDistance(report.distanceM);
   const age = formatAge(report.createdAt);
   const isResponding = report.status === 'responding';
+  const { session } = useSession();
+  const success = useThemeColor('success');
+  // Said differently to the rescuer themselves, so they can pick their own rescue out of the list.
+  const responding =
+    report.rescuerId === session?.user.id ? 'You are on the way' : 'Someone is on the way';
   const spoken = [
     animal,
     urgency,
-    isResponding && 'someone is on the way',
+    isResponding && responding.toLowerCase(),
     `${distance} away`,
     `reported ${age.toLowerCase()}`,
     report.landmark?.trim() || 'no landmark given',
@@ -96,7 +102,10 @@ export function ReportCard({ report, onPress }: ReportCardProps) {
       {isResponding && (
         <View pointerEvents="none" aria-hidden>
           <Button variant="tertiary" size="sm">
-            On the way
+            {/* A green light: a rescuer is going right now. The words say it too, so the meaning
+                does not rest on the color. */}
+            <View style={[styles.live, { backgroundColor: success }]} />
+            <Button.Label>{responding}</Button.Label>
           </Button>
         </View>
       )}
@@ -194,6 +203,11 @@ const styles = StyleSheet.create({
   landmark: {
     flex: 1,
     fontWeight: 400,
+  },
+  live: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   noLandmark: {
     fontStyle: 'italic',
