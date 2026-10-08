@@ -10,11 +10,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useSession } from '@/hooks/use-session';
 import {
   ANIMAL_TYPES,
   CONDITIONS,
+  GUEST_LIMIT_ERROR,
   POOR_ACCURACY_M,
   SIZES,
+  submitReport,
   URGENCIES,
   type ReportDraft,
 } from '@/lib/reports';
@@ -29,24 +32,69 @@ const LANDMARK_MAX_LENGTH = 120;
 
 type Option = { value: string; label: string };
 
-function labelOf(options: readonly Option[], value: string | null) {
-  return options.find((option) => option.value === value)?.label ?? 'Not given';
-}
-
 type ReportFormProps = {
   draft: ReportDraft;
+  /** Drops this report and goes back to the camera. Also used after a report is sent. */
   onRetake: () => void;
 };
+
+type SendStatus = 'idle' | 'sending' | 'sent' | 'limit' | 'failed';
+
+/** 3481234 becomes "3.3 MB"; 181234 becomes "177 KB". */
+function readableSize(bytes: number) {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    : `${Math.round(bytes / 1024)} KB`;
+}
 
 /** The reporter checks the pin, then says what the animal is and how fast help is needed. */
 export function ReportForm({ draft: fromCamera, onRetake }: ReportFormProps) {
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(fromCamera);
   const [mapFailed, setMapFailed] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
+  const { session } = useSession();
+  const [status, setStatus] = useState<SendStatus>('idle');
+  const [photoSizes, setPhotoSizes] = useState<{ before: number; after: number }[]>([]);
 
   const update = (changes: Partial<ReportDraft>) => setDraft({ ...draft, ...changes });
-  const canSubmit = draft.animalType !== '' && draft.urgency !== null;
+  const isSending = status === 'sending';
+  const isComplete = draft.animalType !== '' && draft.urgency !== null;
+
+  async function send() {
+    if (!session) return;
+    setStatus('sending');
+    try {
+      setPhotoSizes(await submitReport(draft, session.user.id));
+      setStatus('sent');
+    } catch (error) {
+      const isLimit = error instanceof Error && error.message === GUEST_LIMIT_ERROR;
+      if (!isLimit) console.warn('Sending the report failed:', error);
+      setStatus(isLimit ? 'limit' : 'failed');
+    }
+  }
+
+  if (status === 'sent') {
+    return (
+      <ThemedView style={[styles.container, styles.sent, { paddingTop: insets.top }]}>
+        <ThemedText type="subtitle" role="heading">
+          Report sent
+        </ThemedText>
+        <ThemedText themeColor="textSecondary" style={styles.centered}>
+          Thank you. The report is saved with its photos and exact location.
+        </ThemedText>
+        {/* Development builds only: proof that photos were shrunk before sending. */}
+        {__DEV__ &&
+          photoSizes.map((size, index) => (
+            <ThemedText key={index} type="small" themeColor="textSecondary">
+              Photo {index + 1}: {readableSize(size.before)} sent as {readableSize(size.after)}
+            </ThemedText>
+          ))}
+        <Button style={styles.sentAction} onPress={onRetake}>
+          Report another
+        </Button>
+      </ThemedView>
+    );
+  }
   // Judged on the reading from the camera, so the notice does not vanish once the pin is moved.
   const isRough = fromCamera.accuracyM != null && fromCamera.accuracyM > POOR_ACCURACY_M;
 
@@ -179,41 +227,31 @@ export function ReportForm({ draft: fromCamera, onRetake }: ReportFormProps) {
             />
           </TextField>
 
-          {!canSubmit && (
+          {status === 'limit' && (
+            <ThemedText type="small" role="alert">
+              Guests can send 3 reports in 24 hours. Sign in with Google on the Profile tab to send
+              more.
+            </ThemedText>
+          )}
+          {status === 'failed' && (
+            <ThemedText type="small" role="alert">
+              Could not send the report. Check your connection and try again.
+            </ThemedText>
+          )}
+          {!isComplete && (
             <ThemedText type="small" themeColor="textSecondary">
               Choose the animal and how urgent it is to continue.
             </ThemedText>
           )}
           <View style={styles.actions}>
-            <Button variant="secondary" onPress={onRetake}>
+            <Button variant="secondary" isDisabled={isSending} onPress={onRetake}>
               Retake
             </Button>
-            <Button isDisabled={!canSubmit} onPress={() => setShowSummary(true)}>
-              Submit
+            {/* Disabled while sending, so a second tap cannot send the report twice. */}
+            <Button isDisabled={!isComplete || isSending} onPress={send}>
+              {isSending ? 'Sending…' : 'Submit'}
             </Button>
           </View>
-
-          {showSummary && (
-            // Stand-in until the report is really sent: shows what would be saved.
-            <ThemedView type="backgroundElement" style={styles.summary}>
-              <ThemedText type="smallBold">Not sent yet. This is what will be saved:</ThemedText>
-              <ThemedText type="small">Animal: {labelOf(ANIMAL_TYPES, draft.animalType)}</ThemedText>
-              <ThemedText type="small">Urgency: {labelOf(URGENCIES, draft.urgency)}</ThemedText>
-              <ThemedText type="small">Condition: {labelOf(CONDITIONS, draft.condition)}</ThemedText>
-              <ThemedText type="small">Size: {labelOf(SIZES, draft.size)}</ThemedText>
-              <ThemedText type="small">Color: {draft.color.trim() || 'Not given'}</ThemedText>
-              <ThemedText type="small">Landmark: {draft.landmark.trim() || 'Not given'}</ThemedText>
-              <ThemedText type="small">Latitude: {draft.latitude}</ThemedText>
-              <ThemedText type="small">Longitude: {draft.longitude}</ThemedText>
-              <ThemedText type="small">
-                Accuracy:{' '}
-                {draft.accuracyM == null ? 'not known' : `about ${Math.round(draft.accuracyM)} m`}
-              </ThemedText>
-              <ThemedText type="small">
-                Photo taken: {new Date(draft.photos[0].takenAt).toLocaleString()}
-              </ThemedText>
-            </ThemedView>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
@@ -372,9 +410,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: Spacing.two,
   },
-  summary: {
-    gap: Spacing.one,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+  sent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    padding: Spacing.four,
+  },
+  sentAction: {
+    marginTop: Spacing.three,
   },
 });
