@@ -1,4 +1,6 @@
 import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
+import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
+import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
 import PencilEdit01Icon from '@hugeicons/core-free-icons/PencilEdit01Icon';
 import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
@@ -106,6 +108,36 @@ export default function ProfileScreen() {
               ]}>
               <HugeiconsIcon icon={PencilEdit01Icon} size={18} color={foreground} />
               <ThemedText style={styles.menuLabel}>{name ? 'Edit name' : 'Add your name'}</ThemedText>
+            </Pressable>
+          )}
+          {/* The viewer's own history, each on its own screen. */}
+          <Pressable
+            role="button"
+            onPress={() => router.push({ pathname: '/history', params: { kind: 'reports' } })}
+            style={({ pressed }) => [
+              styles.menuRow,
+              styles.menuRowDivided,
+              { borderBottomColor: border },
+              pressed && styles.pressed,
+            ]}>
+            <HugeiconsIcon icon={Megaphone01Icon} size={18} color={foreground} />
+            <ThemedText style={styles.menuLabel}>Your reports</ThemedText>
+            <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
+          </Pressable>
+          {/* Only Google users can go to an animal, so only they have rescues. */}
+          {!isGuest && (
+            <Pressable
+              role="button"
+              onPress={() => router.push({ pathname: '/history', params: { kind: 'rescues' } })}
+              style={({ pressed }) => [
+                styles.menuRow,
+                styles.menuRowDivided,
+                { borderBottomColor: border },
+                pressed && styles.pressed,
+              ]}>
+              <HugeiconsIcon icon={HeartCheckIcon} size={18} color={foreground} />
+              <ThemedText style={styles.menuLabel}>Your rescues</ThemedText>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
             </Pressable>
           )}
           {/* A row like the others. Tapping it opens the three choices in a sheet from the bottom. */}

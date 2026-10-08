@@ -14,9 +14,10 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 
 - `src/app/_layout.tsx` — providers and the route guard: signed-out users see `welcome`, signed-in users see `(tabs)`, `settings`, `components`.
 - `src/app/(tabs)/` — Map, List, Report, Profile.
-- `src/app/(tabs)/index.tsx` — the Map tab: nearby reports as paw pins colored by urgency, a drawer with the gist when a pin is tapped. `list.tsx` — the same reports as cards, nearest first. Each has a `.web.tsx` twin with one line saying it works in the phone app.
-- `src/app/report/[id].tsx` — one report in full, opened from a card or from the drawer: photos, two tabs (Report, Reporter), and the directions buttons.
-- `src/hooks/use-nearby-reports.tsx` — `useNearbyReports()`: the one copy of the nearby reports that the Map, the List, and the report page all read. It also holds the chosen search distance.
+- `src/app/(tabs)/index.tsx` — the Map tab: nearby reports as paw pins colored by urgency, a drawer with the gist when a pin is tapped. `list.tsx` — the same reports as cards, nearest first, with a **Filter** drawer (`src/components/list-filter.tsx`: whose reports, and the distance). Each has a `.web.tsx` twin with one line saying it works in the phone app.
+- `src/app/report/[id].tsx` — one report in full, opened from a card or from the drawer: photos, two tabs (Report, Reporter), and a bottom bar with at most two buttons. **Directions** on the left and **I'm on my way** or **Update status** on the right; on your own report, **Close report** alone. Each status change asks first in one shared confirm dialog.
+- `src/hooks/use-nearby-reports.tsx` — `useNearbyReports()`: the one copy of the nearby reports that the Map, the List, and the report page all read. It also holds the chosen search distance, and listens for live changes: any change to a report runs the search again, quietly.
+- `src/lib/claims.ts` — claiming a report, giving up, the outcome, closing your own report, and reading a person's own history. `src/app/history.tsx` — **Your reports** or **Your rescues**, opened from two rows in the Profile tab's menu; the rows are drawn by `src/components/profile-history.tsx`.
 - `src/lib/nearby.ts` — the nearby search (calls the database function `nearby_reports`), the distance choices, the urgency colors. `src/lib/map.ts` — map styles for light and dark, the paw pictures. `src/lib/directions.ts` — the Google Maps and Waze links.
 - `src/lib/appearance.ts` — the light, dark, or system choice on the Profile tab, kept on the phone.
 - `src/app/(tabs)/report.tsx` — the Report tab on phones: permissions, then camera, then form. `report.web.tsx` is the browser version, one line saying reporting works in the phone app.
@@ -36,7 +37,8 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - Roadmap Phase 1 (sign-in, tabs, database) is built: `docs/implementation-plan/app-access/`. CAPTCHA for guests was dropped by the owner.
 - Roadmap Phase 2 (reporting a stray) is built: `docs/implementation-plan/stray-reporting/`. Some of its screen checks were marked done by the owner without being seen line by line; each phase file says which. The notifications request (part of R-11) waits for roadmap Phase 5.
 - Roadmap Phase 3 (map, list, report page, directions) is built: `docs/implementation-plan/stray-finding/`. Most of its screen checks were marked done by the owner without being reported line by line; each phase file says which. A path drawn on PawPin's own map was tried and removed: the free routing servers were not dependable.
-- Next is roadmap Phase 4: claiming a report, outcomes, live changes.
+- Roadmap Phase 4 (claiming, outcomes, live changes, closing, profile history) is built: `docs/implementation-plan/rescue-coordination/`. Most of its screen checks were marked done by the owner without being reported line by line; each phase file says which.
+- Next is roadmap Phase 5: alerts, flags, safety tips.
 
 **Things that have already cost time**
 
@@ -61,6 +63,16 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - `Uniwind.setTheme('light' | 'dark' | 'system')` switches the whole app, the map included. Read the theme with `useColorScheme`, as the rest of the code does.
 - To center something in what is left under a `FlatList` header, put it in `ListFooterComponent` with `ListFooterComponentStyle={{ flexGrow: 1 }}`. The empty slot cannot be stretched.
 - The reporter's name, photo, join month, and report count are shown on the report page to every signed-in user, guests included. The database already allowed reading them; think before showing more.
+- A report's status changes only through database functions: `claim_report`, `cancel_claim`, `resolve_report`, `close_report` (`supabase/migrations/0007`, `0009`, `0010`, `0011`). The app cannot update `reports.status` or write to `claims` directly. One rescuer per report, one report per rescuer, and never the reporter on their own report: a reporter who helped the animal says so when closing, and it ends as rescued in their name.
+- Reports untouched for 72 hours are closed by an hourly database job (`pg_cron`, `close-stale-reports`). "Untouched" is `reports.updated_at`, which a trigger moves on every update.
+- Migrations are applied by hand over the database connection, each after a rolled-back run with its test. There is no Supabase CLI and no migration history table; the files are the record.
+- A live change must not show a loading state. `reload()` in `use-nearby-reports.tsx` is the quiet search; `refresh()` is the one that reads the location and shows loading.
+- HeroUI `Menu` and `Select` with `presentation="bottom-sheet"` need that same prop on the root and on `Content`, or they throw at run time. The type check does not catch it.
+- HeroUI `Menu` renders a view around its trigger. To size the button in a row, put `flex` on the `Menu`, not on the button inside.
+- HeroUI's `variant="blur"` overlay is iPhone only. The blur behind the report page's confirm dialog is `expo-blur`: a `BlurTargetView` around the page and a `BlurView` in the dialog's portal. The blur copies only what views inside the target draw, so the scroll view needs its own background color or empty areas come out black. Android 12 and up.
+- A MapLibre map is not blurred unless it has `androidView="texture"`, as the small map on the report page does.
+- Brand logos come from `thesvg`, one file per icon: `import { svg } from 'thesvg/google-maps'`. The main entry loads 6,500 icons.
+- Do not run Prettier with its defaults on this code. The files use single quotes, 100 columns, and brackets on the same line: `--single-quote --print-width 100 --bracket-same-line`.
 
 ## Commands
 

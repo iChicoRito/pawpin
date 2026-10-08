@@ -92,6 +92,15 @@ export type ReportDraft = ReportPlace & {
   urgency: ReportUrgency | null;
 };
 
+// Values match the report_status type in the database. Said the way a person would say them.
+export const REPORT_STATUSES: readonly { value: string; label: string }[] = [
+  { value: 'reported', label: 'Waiting for a rescuer' },
+  { value: 'responding', label: 'Someone is on the way' },
+  { value: 'rescued', label: 'Rescued' },
+  { value: 'not_found', label: 'Not found' },
+  { value: 'closed', label: 'Closed' },
+];
+
 /**
  * What to show for a saved value: its label from a choice list, or the value itself when the
  * reporter typed it after choosing "Other". Empty when nothing was saved.
