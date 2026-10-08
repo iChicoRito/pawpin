@@ -90,8 +90,9 @@ export function ReportPreview({ report, isOpen, onClose, onView }: ReportPreview
                 // The reporter was there: they need no route to their own report. Reading it is
                 // the one thing left to do, so that is the main button.
                 <View style={styles.actions}>
+                  {/* Shuts the drawer only. Ending the report is done on its page. */}
                   <Button variant="secondary" onPress={onClose}>
-                    Close
+                    Dismiss
                   </Button>
                   <Button style={styles.mainAction} onPress={() => onView(report)}>
                     View report

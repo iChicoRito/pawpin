@@ -44,7 +44,7 @@ import { useDirections } from '@/hooks/use-directions';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
-import { cancelClaim, claimReport, refusalOf, resolveReport } from '@/lib/claims';
+import { cancelClaim, claimReport, closeReport, refusalOf, resolveReport } from '@/lib/claims';
 import { formatAge, formatDistance, initialsOf } from '@/lib/format';
 import { URGENCY_COLORS } from '@/lib/nearby';
 import { ANIMAL_TYPES, COLORS, CONDITIONS, labelFor, SIZES, URGENCIES } from '@/lib/reports';
@@ -53,8 +53,15 @@ import { supabase } from '@/lib/supabase';
 /** The photo is as wide as the screen and three quarters as tall, up to this height. */
 const PHOTO_MAX_HEIGHT = 360;
 
-/** What the rescuer is asked before a status change is sent. The button repeats the action. */
+/** What is asked before a status change is sent. The button repeats the action. */
 const CONFIRMATIONS = {
+  // The reporter's own way to end a report: the animal left, or was helped another way.
+  close: {
+    title: 'Close this report?',
+    description: 'It leaves the map for everyone and cannot be opened again.',
+    confirm: 'Close report',
+    isDanger: true,
+  },
   rescued: {
     title: 'Mark as rescued?',
     description: 'This ends the report and takes it off the map for everyone. It cannot be undone.',
@@ -87,7 +94,9 @@ export default function ReportDetailScreen() {
   const { session, isGuest } = useSession();
   const { toast } = useToast();
   // Which rescue button is waiting for the database. The others are held until it answers.
-  const [busy, setBusy] = useState<'claim' | 'cancel' | 'rescued' | 'not_found' | null>(null);
+  const [busy, setBusy] = useState<
+    'claim' | 'cancel' | 'rescued' | 'not_found' | 'close' | null
+  >(null);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
   // The status change waiting for a yes. Kept after the dialog closes, so its words do not vanish
   // while it fades out.
@@ -133,14 +142,19 @@ export default function ReportDetailScreen() {
     setBusy(kind);
     try {
       await send();
-      if (kind === 'rescued' || kind === 'not_found') {
+      if (kind === 'rescued' || kind === 'not_found' || kind === 'close') {
         toast.show({
           variant: 'success',
           icon: <ToastIcon status="success" />,
-          label: kind === 'rescued' ? 'Marked as rescued' : 'Marked as not found',
+          label:
+            kind === 'rescued'
+              ? 'Marked as rescued'
+              : kind === 'not_found'
+                ? 'Marked as not found'
+                : 'Report closed',
           description: 'The report has left the map.',
         });
-        // Leave first: once resolved, the report is no longer among the nearby ones.
+        // Leave first: once ended, the report is no longer among the nearby ones.
         router.back();
       }
       await reload();
@@ -155,9 +169,11 @@ export default function ReportDetailScreen() {
             ? 'Someone else is already on the way'
             : refusal === 'already_on_the_way'
               ? 'You are already on the way to another animal'
-              : refusal === 'no_active_claim'
-                ? 'This report has changed'
-                : 'Could not send',
+              : refusal === 'cannot_close'
+                ? 'This report has already ended'
+                : refusal === 'no_active_claim'
+                  ? 'This report has changed'
+                  : 'Could not send',
         description:
           refusal === 'already_on_the_way'
             ? 'Finish that rescue or give it up first. Open it and tap Update status.'
@@ -181,7 +197,11 @@ export default function ReportDetailScreen() {
     if (!report) return;
     const reportId = report.id;
     act(pending, () =>
-      pending === 'cancel' ? cancelClaim(reportId) : resolveReport(reportId, pending),
+      pending === 'close'
+        ? closeReport(reportId)
+        : pending === 'cancel'
+          ? cancelClaim(reportId)
+          : resolveReport(reportId, pending),
     );
   }
 
@@ -351,35 +371,48 @@ export default function ReportDetailScreen() {
           ]}>
           {/* One line, two buttons at most: how to get there, and the one thing to do next. */}
           <View style={styles.actionsRow}>
-            {/* Must be the same word as on Menu.Content below, or HeroUI throws. The Menu is a
-              view around its button, so it is the Menu that takes its share of the line. */}
-            <Menu
-              presentation="bottom-sheet"
-              style={isResponding && !isMyClaim && styles.mainAction}>
-              <Menu.Trigger asChild>
-                {/* Filled only when it is the sole button: someone else is already going. */}
-                <Button variant={isResponding && !isMyClaim ? 'primary' : 'secondary'}>
-                  Directions
-                </Button>
-              </Menu.Trigger>
-              <Menu.Portal>
-                <Menu.Overlay />
-                <Menu.Content presentation="bottom-sheet">
-                  <Menu.Label>Open directions in</Menu.Label>
-                  {/* Each app by its own logo. The arrow says the tap leaves PawPin. */}
-                  <Menu.Item style={styles.sheetRow} onPress={directions.openGoogleMaps}>
-                    <BrandIcon xml={googleMapsLogo} />
-                    <Menu.ItemTitle>Google Maps</Menu.ItemTitle>
-                    <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
-                  </Menu.Item>
-                  <Menu.Item style={styles.sheetRow} onPress={directions.openWaze}>
-                    <BrandIcon xml={wazeLogo} />
-                    <Menu.ItemTitle>Waze</Menu.ItemTitle>
-                    <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
-                  </Menu.Item>
-                </Menu.Content>
-              </Menu.Portal>
-            </Menu>
+            {isMine ? (
+              // The reporter was there and needs no route. What only they can do is take it down.
+              <Button
+                variant="danger-soft"
+                style={isResponding && !isMyClaim && styles.mainAction}
+                isDisabled={busy !== null}
+                onPress={() => askFirst('close')}>
+                {busy === 'close' ? 'Closing…' : 'Close report'}
+              </Button>
+            ) : (
+              <>
+              {/* Must be the same word as on Menu.Content below, or HeroUI throws. The Menu is a
+                view around its button, so it is the Menu that takes its share of the line. */}
+              <Menu
+                presentation="bottom-sheet"
+                style={isResponding && !isMyClaim && styles.mainAction}>
+                <Menu.Trigger asChild>
+                  {/* Filled only when it is the sole button: someone else is already going. */}
+                  <Button variant={isResponding && !isMyClaim ? 'primary' : 'secondary'}>
+                    Directions
+                  </Button>
+                </Menu.Trigger>
+                <Menu.Portal>
+                  <Menu.Overlay />
+                  <Menu.Content presentation="bottom-sheet">
+                    <Menu.Label>Open directions in</Menu.Label>
+                    {/* Each app by its own logo. The arrow says the tap leaves PawPin. */}
+                    <Menu.Item style={styles.sheetRow} onPress={directions.openGoogleMaps}>
+                      <BrandIcon xml={googleMapsLogo} />
+                      <Menu.ItemTitle>Google Maps</Menu.ItemTitle>
+                      <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
+                    </Menu.Item>
+                    <Menu.Item style={styles.sheetRow} onPress={directions.openWaze}>
+                      <BrandIcon xml={wazeLogo} />
+                      <Menu.ItemTitle>Waze</Menu.ItemTitle>
+                      <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
+                    </Menu.Item>
+                  </Menu.Content>
+                </Menu.Portal>
+              </Menu>
+              </>
+            )}
 
             {!isResponding && (
               <Button
@@ -397,7 +430,7 @@ export default function ReportDetailScreen() {
             {isMyClaim && (
               <Menu presentation="bottom-sheet" style={styles.mainAction}>
                 <Menu.Trigger asChild>
-                  <Button isDisabled={busy !== null}>{busy ? 'Sending…' : 'Update status'}</Button>
+                  <Button isDisabled={busy !== null}>{busy && busy !== 'close' ? 'Sending…' : 'Update status'}</Button>
                 </Menu.Trigger>
                 <Menu.Portal>
                   <Menu.Overlay />
@@ -467,7 +500,14 @@ export default function ReportDetailScreen() {
           <Dialog.Overlay />
           <Dialog.Content>
             <Dialog.Title>{CONFIRMATIONS[pending].title}</Dialog.Title>
-            <Dialog.Description>{CONFIRMATIONS[pending].description}</Dialog.Description>
+            <Dialog.Description>
+              {CONFIRMATIONS[pending].description}
+              {/* The reporter should know a rescuer is already going before they take it down. */}
+              {pending === 'close' &&
+                isResponding &&
+                !isMyClaim &&
+                ' Someone is on the way to this animal; closing tells them to stop.'}
+            </Dialog.Description>
             <View style={styles.confirmChoices}>
               {/* Quieter beside the red button, so the two do not compete. */}
               <Button
