@@ -4,10 +4,11 @@ import { Uniwind } from 'uniwind';
 
 export type Appearance = 'system' | 'light' | 'dark';
 
-export const APPEARANCES: readonly { value: Appearance; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+// The hint is the one line under each choice where it is picked.
+export const APPEARANCES: readonly { value: Appearance; label: string; hint: string }[] = [
+  { value: 'system', label: 'System', hint: 'Follows your phone’s setting.' },
+  { value: 'light', label: 'Light', hint: 'Bright. Best in daylight.' },
+  { value: 'dark', label: 'Dark', hint: 'Dim. Easier on the eyes at night.' },
 ];
 
 const APPEARANCE_KEY = 'pawpin.appearance';

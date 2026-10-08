@@ -45,6 +45,7 @@ function RootNavigator() {
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="settings" options={{ headerShown: true, title: 'Settings' }} />
+          <Stack.Screen name="appearance" options={{ headerShown: true, title: 'Appearance' }} />
           <Stack.Screen name="report/[id]" options={{ headerShown: true, title: 'Report' }} />
           {/* The screen sets its own title: "Your reports" or "Your rescues". */}
           <Stack.Screen name="history" options={{ headerShown: true, title: '' }} />

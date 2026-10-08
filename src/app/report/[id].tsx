@@ -123,7 +123,6 @@ export default function ReportDetailScreen() {
   const reporter = useReporter(report?.reporterId);
   const directions = useDirections(report);
   const muted = useThemeColor('muted');
-  const [success, danger] = useThemeColor(['success', 'danger']);
 
   if (!report) {
     return (
@@ -388,7 +387,7 @@ export default function ReportDetailScreen() {
                     <Menu.Content presentation="bottom-sheet">
                       <Menu.Label>Why are you closing it?</Menu.Label>
                       <Menu.Item style={styles.sheetRow} onPress={() => askFirst('close_rescued')}>
-                        <ChoiceIcon icon={CheckmarkCircle02Icon} color={success} />
+                        <ChoiceIcon icon={CheckmarkCircle02Icon} />
                         <View style={styles.sheetText}>
                           <Menu.ItemTitle>I helped it myself</Menu.ItemTitle>
                           <Menu.ItemDescription>
@@ -397,7 +396,7 @@ export default function ReportDetailScreen() {
                         </View>
                       </Menu.Item>
                       <Menu.Item style={styles.sheetRow} onPress={() => askFirst('close')}>
-                        <ChoiceIcon icon={CancelCircleIcon} color={muted} />
+                        <ChoiceIcon icon={CancelCircleIcon} />
                         <View style={styles.sheetText}>
                           <Menu.ItemTitle>It no longer needs help</Menu.ItemTitle>
                           <Menu.ItemDescription>
@@ -470,7 +469,7 @@ export default function ReportDetailScreen() {
                       <Menu.Label>What happened?</Menu.Label>
                       {/* The two ways it can end. Green marks the good one; shape tells them apart too. */}
                       <Menu.Item style={styles.sheetRow} onPress={() => askFirst('rescued')}>
-                        <ChoiceIcon icon={CheckmarkCircle02Icon} color={success} />
+                        <ChoiceIcon icon={CheckmarkCircle02Icon} />
                         <View style={styles.sheetText}>
                           <Menu.ItemTitle>Rescued</Menu.ItemTitle>
                           <Menu.ItemDescription>
@@ -482,7 +481,7 @@ export default function ReportDetailScreen() {
                         variant="danger"
                         style={styles.sheetRow}
                         onPress={() => askFirst('not_found')}>
-                        <ChoiceIcon icon={SearchRemoveIcon} color={danger} />
+                        <ChoiceIcon icon={SearchRemoveIcon} />
                         <View style={styles.sheetText}>
                           <Menu.ItemTitle>Not found</Menu.ItemTitle>
                           <Menu.ItemDescription>
@@ -493,7 +492,7 @@ export default function ReportDetailScreen() {
                       {/* Not an outcome: it hands the report back. Set apart so it is not picked as one. */}
                       <Separator className="mx-3 my-1" />
                       <Menu.Item style={styles.sheetRow} onPress={() => askFirst('cancel')}>
-                        <ChoiceIcon icon={Undo02Icon} color={muted} />
+                        <ChoiceIcon icon={Undo02Icon} />
                         <View style={styles.sheetText}>
                           <Menu.ItemTitle>I can’t make it</Menu.ItemTitle>
                           <Menu.ItemDescription>
@@ -563,13 +562,16 @@ export default function ReportDetailScreen() {
   );
 }
 
-/** An icon on a tile tinted with its own color. Same size as a `BrandIcon`, so both drawers line up. */
-function ChoiceIcon({ icon, color }: { icon: IconSvgElement; color: string }) {
+/** An icon on a faint tile. Same size as a `BrandIcon`, so both drawers line up. */
+function ChoiceIcon({ icon }: { icon: IconSvgElement }) {
+  // One neutral color for every choice. Which one is good or bad is said by its words, not by
+  // green or red.
+  const foreground = useThemeColor('foreground');
   return (
     <View aria-hidden style={styles.choiceIcon}>
       {/* Theme colors come in more than one notation, so the tint is a see-through layer. */}
-      <View style={[StyleSheet.absoluteFill, styles.choiceTint, { backgroundColor: color }]} />
-      <HugeiconsIcon icon={icon} size={22} color={color} />
+      <View style={[StyleSheet.absoluteFill, styles.choiceTint, { backgroundColor: foreground }]} />
+      <HugeiconsIcon icon={icon} size={22} color={foreground} />
     </View>
   );
 }
@@ -796,7 +798,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   choiceTint: {
-    opacity: 0.14,
+    opacity: 0.08,
   },
   sheetText: {
     flex: 1,

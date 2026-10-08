@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -58,7 +59,10 @@ export default function WelcomeScreen() {
             </View>
           )}
           <Button size="lg" isDisabled={signingIn !== null} onPress={() => signIn('google')}>
-            {signingIn === 'google' ? 'Signing in…' : 'Continue with Google'}
+            <BrandIcon xml={GOOGLE_LOGO} size={22} />
+            <Button.Label>
+              {signingIn === 'google' ? 'Signing in…' : 'Continue with Google'}
+            </Button.Label>
           </Button>
           <Button
             size="lg"

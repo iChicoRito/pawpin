@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocationGate } from '@/components/location-gate';
 import { ListFilter, type ReportOwner } from '@/components/list-filter';
-import { ReportCard, ReportCardSkeleton } from '@/components/report-card';
+import { ReportList, ReportListSkeleton } from '@/components/report-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -22,7 +22,7 @@ const OWNER_SUMMARY: Record<ReportOwner, string> = {
   mine: 'Your reports',
   others: 'Reports from others',
 };
-/** About one screen of cards, so the page does not jump much when the real ones arrive. */
+/** About one screen of rows, so the page does not jump much when the real ones arrive. */
 const SKELETON_CARDS = 5;
 
 // Phones only. Browsers get list.web.tsx.
@@ -64,12 +64,18 @@ function NearbyList() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        data={shown}
-        keyExtractor={(report) => report.id}
+        // All the reports are one grouped list on one surface, so they are one item here. The
+        // FlatList stays for its header, its footer that can stretch, and the pull to refresh.
+        // ponytail: every row is drawn at once. Fine for the tens a 25 km search gives; go back
+        // to one FlatList item per report if a search ever returns hundreds.
+        data={shown.length > 0 ? [shown] : []}
+        keyExtractor={() => 'reports'}
         renderItem={({ item }) => (
-          <ReportCard
-            report={item}
-            onPress={() => router.push({ pathname: '/report/[id]', params: { id: item.id } })}
+          <ReportList
+            reports={item}
+            onOpen={(report) =>
+              router.push({ pathname: '/report/[id]', params: { id: report.id } })
+            }
           />
         )}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.four }]}
@@ -120,10 +126,8 @@ function NearbyList() {
           shown.length > 0 ? null : isLoading && !isPulling ? (
             // The pull-down spinner already shows a refresh; these stand in for a list with nothing yet.
             // Read out as one line, not as a row of empty shapes.
-            <View accessible aria-busy aria-label="Looking for strays near you" style={styles.loading}>
-              {Array.from({ length: SKELETON_CARDS }, (_, index) => (
-                <ReportCardSkeleton key={index} />
-              ))}
+            <View accessible aria-busy aria-label="Looking for strays near you">
+              <ReportListSkeleton rows={SKELETON_CARDS} />
             </View>
           ) : status === 'ready' ? (
             <View style={styles.empty}>
@@ -189,9 +193,12 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     marginBottom: Spacing.two,
   },
+  // The title at the column's left edge, the filter button at its right edge: the same edges
+  // the cards under them have.
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: Spacing.three,
   },
   // The title and the line under it. Gives way to the button on a narrow phone.
@@ -202,10 +209,6 @@ const styles = StyleSheet.create({
   failure: {
     gap: Spacing.two,
     marginTop: Spacing.two,
-  },
-  // Same gap as between the real cards.
-  loading: {
-    gap: Spacing.two,
   },
   // Fills what is left under the header and holds its content in the middle of it.
   empty: {

@@ -1,10 +1,11 @@
-import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
+import Alert02Icon from '@hugeicons/core-free-icons/Alert02Icon';
 import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
 import PencilEdit01Icon from '@hugeicons/core-free-icons/PencilEdit01Icon';
 import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
+import UserSwitchIcon from '@hugeicons/core-free-icons/UserSwitchIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -13,19 +14,21 @@ import {
   FieldError,
   Input,
   Label,
-  Select,
+  ListGroup,
+  Separator,
   TextField,
   useThemeColor,
 } from 'heroui-native';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Fragment, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
-import { APPEARANCES, setAppearance, useAppearance } from '@/lib/appearance';
+import { APPEARANCES, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
 import { initialsOf } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
@@ -36,12 +39,7 @@ export default function ProfileScreen() {
   const { session, isGuest, name, avatarUrl } = useSession();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [foreground, accent, muted, border] = useThemeColor([
-    'foreground',
-    'accent',
-    'muted',
-    'border',
-  ]);
+  const [foreground, accent] = useThemeColor(['foreground', 'accent']);
   const [isEditingName, setIsEditingName] = useState(false);
   const appearance = useAppearance();
 
@@ -52,6 +50,44 @@ export default function ProfileScreen() {
       month: 'long',
       year: 'numeric',
     });
+
+  // The rows of the menu, top to bottom. Some are only for guests, some only for Google users.
+  const options = [
+    // Google users take their name from Google, so only guests can set one here.
+    isGuest &&
+      !isEditingName && {
+        icon: PencilEdit01Icon,
+        title: name ? 'Edit name' : 'Add your name',
+        description: 'Shown to others on your reports.',
+        onPress: () => setIsEditingName(true),
+      },
+    {
+      icon: Megaphone01Icon,
+      title: 'Your reports',
+      description: 'Strays you reported, and what became of them.',
+      onPress: () => router.push({ pathname: '/history', params: { kind: 'reports' } }),
+    },
+    // Only Google users can go to an animal, so only they have rescues.
+    !isGuest && {
+      icon: HeartCheckIcon,
+      title: 'Your rescues',
+      description: 'Animals you marked as rescued.',
+      onPress: () => router.push({ pathname: '/history', params: { kind: 'rescues' } }),
+    },
+    {
+      icon: Moon02Icon,
+      title: 'Appearance',
+      // Says what is chosen now.
+      description: APPEARANCES.find((option) => option.value === appearance)?.label ?? '',
+      onPress: () => router.push('/appearance'),
+    },
+    {
+      icon: Settings01Icon,
+      title: 'Settings',
+      description: 'Account, privacy, and signing out.',
+      onPress: () => router.push('/settings'),
+    },
+  ].filter((option) => !!option);
 
   return (
     <ThemedView style={styles.container}>
@@ -93,88 +129,25 @@ export default function ProfileScreen() {
 
         {isGuest && <GuestCard />}
 
-        {/* Same surface and padding as the card above, so the icon lines up with the card's text. */}
-        <ThemedView type="backgroundElement" style={styles.menu}>
-          {/* Google users take their name from Google, so only guests can set one here. */}
-          {isGuest && !isEditingName && (
-            <Pressable
-              role="button"
-              onPress={() => setIsEditingName(true)}
-              style={({ pressed }) => [
-                styles.menuRow,
-                styles.menuRowDivided,
-                { borderBottomColor: border },
-                pressed && styles.pressed,
-              ]}>
-              <HugeiconsIcon icon={PencilEdit01Icon} size={18} color={foreground} />
-              <ThemedText style={styles.menuLabel}>{name ? 'Edit name' : 'Add your name'}</ThemedText>
-            </Pressable>
-          )}
-          {/* The viewer's own history, each on its own screen. */}
-          <Pressable
-            role="button"
-            onPress={() => router.push({ pathname: '/history', params: { kind: 'reports' } })}
-            style={({ pressed }) => [
-              styles.menuRow,
-              styles.menuRowDivided,
-              { borderBottomColor: border },
-              pressed && styles.pressed,
-            ]}>
-            <HugeiconsIcon icon={Megaphone01Icon} size={18} color={foreground} />
-            <ThemedText style={styles.menuLabel}>Your reports</ThemedText>
-            <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
-          </Pressable>
-          {/* Only Google users can go to an animal, so only they have rescues. */}
-          {!isGuest && (
-            <Pressable
-              role="button"
-              onPress={() => router.push({ pathname: '/history', params: { kind: 'rescues' } })}
-              style={({ pressed }) => [
-                styles.menuRow,
-                styles.menuRowDivided,
-                { borderBottomColor: border },
-                pressed && styles.pressed,
-              ]}>
-              <HugeiconsIcon icon={HeartCheckIcon} size={18} color={foreground} />
-              <ThemedText style={styles.menuLabel}>Your rescues</ThemedText>
-              <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
-            </Pressable>
-          )}
-          {/* A row like the others. Tapping it opens the three choices in a sheet from the bottom. */}
-          <Select
-            // Must be the same word as on Select.Content below, or HeroUI throws.
-            presentation="bottom-sheet"
-            value={APPEARANCES.find((option) => option.value === appearance)}
-            onValueChange={(option) => option && setAppearance(option.value as typeof appearance)}>
-            <Select.Trigger
-              variant="unstyled"
-              aria-label={`Appearance, ${appearance}`}
-              style={[styles.menuRow, styles.menuRowDivided, { borderBottomColor: border }]}>
-              <HugeiconsIcon icon={Moon02Icon} size={18} color={foreground} />
-              <ThemedText style={styles.menuLabel}>Appearance</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {APPEARANCES.find((option) => option.value === appearance)?.label}
-              </ThemedText>
-              <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Overlay />
-              <Select.Content presentation="bottom-sheet">
-                {APPEARANCES.map((option) => (
-                  <Select.Item key={option.value} value={option.value} label={option.label} />
-                ))}
-              </Select.Content>
-            </Select.Portal>
-          </Select>
-          <Pressable
-            role="button"
-            onPress={() => router.push('/settings')}
-            style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
-            <HugeiconsIcon icon={Settings01Icon} size={18} color={foreground} />
-            <ThemedText style={styles.menuLabel}>Settings</ThemedText>
-            <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={muted} />
-          </Pressable>
-        </ThemedView>
+        {/* One HeroUI ListGroup, the same grouped list as the List tab: an icon, a name, one line
+            on what the row is for, and the arrow that says it opens something. */}
+        <ListGroup>
+          {options.map((option, index) => (
+            <Fragment key={option.title}>
+              {index > 0 && <Separator className="mx-4" />}
+              <ListGroup.Item role="button" onPress={option.onPress}>
+                <ListGroup.ItemPrefix>
+                  <HugeiconsIcon icon={option.icon} size={20} color={foreground} />
+                </ListGroup.ItemPrefix>
+                <ListGroup.ItemContent>
+                  <ListGroup.ItemTitle>{option.title}</ListGroup.ItemTitle>
+                  <ListGroup.ItemDescription>{option.description}</ListGroup.ItemDescription>
+                </ListGroup.ItemContent>
+                <ListGroup.ItemSuffix />
+              </ListGroup.Item>
+            </Fragment>
+          ))}
+        </ListGroup>
       </ScrollView>
     </ThemedView>
   );
@@ -247,22 +220,7 @@ function GuestCard() {
     }
   }
 
-  if (status === 'conflict') {
-    return (
-      <ThemedView type="backgroundElement" role="alert" style={styles.card}>
-        <ThemedText type="smallBold">This Google account already has a PawPin account</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Switch to it? Reports made as a guest will stay with the guest account.
-        </ThemedText>
-        <View style={styles.choices}>
-          <Button variant="secondary" onPress={() => setStatus('idle')}>
-            Cancel
-          </Button>
-          <Button onPress={() => run(signInWithGoogle)}>Switch account</Button>
-        </View>
-      </ThemedView>
-    );
-  }
+  if (status === 'conflict') return <AccountConflict onStay={() => setStatus('idle')} />;
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
@@ -280,8 +238,83 @@ function GuestCard() {
         style={styles.cardAction}
         isDisabled={status === 'working'}
         onPress={() => run(linkGoogle)}>
-        {status === 'working' ? 'Signing in…' : 'Sign in with Google'}
+        <BrandIcon xml={GOOGLE_LOGO} size={22} />
+        <Button.Label>{status === 'working' ? 'Signing in…' : 'Sign in with Google'}</Button.Label>
       </Button>
+    </ThemedView>
+  );
+}
+
+/**
+ * Shown when the Google account a guest picked already has its own PawPin account, so the two
+ * cannot be joined. Says what each choice does before it is made: switching leaves the guest's
+ * reports behind for good.
+ */
+function AccountConflict({ onStay }: { onStay: () => void }) {
+  const [foreground, muted] = useThemeColor(['foreground', 'muted']);
+  // The card stays up while the switch runs, and says so here if it fails.
+  const [switching, setSwitching] = useState<'idle' | 'working' | 'failed'>('idle');
+
+  async function switchAccount() {
+    setSwitching('working');
+    try {
+      // On success the session changes and this guest's card is gone with it. False means the
+      // browser was closed without signing in: nothing went wrong.
+      if (!(await signInWithGoogle())) setSwitching('idle');
+    } catch (error) {
+      console.warn('Switching account failed:', error);
+      setSwitching('failed');
+    }
+  }
+
+  return (
+    <ThemedView type="backgroundElement" role="alert" style={styles.conflict}>
+      <View style={styles.conflictHeading}>
+        <ThemedView type="backgroundSelected" style={styles.conflictIcon}>
+          <HugeiconsIcon icon={UserSwitchIcon} size={20} color={foreground} />
+        </ThemedView>
+        <View style={styles.conflictTitle}>
+          <ThemedText style={styles.conflictName}>
+            This Google account is already on PawPin
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            It has its own account, so it cannot be joined to this guest.
+          </ThemedText>
+        </View>
+      </View>
+
+      {/* What is lost by switching, set apart so it is read before the buttons. */}
+      <View style={styles.conflictNote}>
+        <HugeiconsIcon icon={Alert02Icon} size={18} color={muted} />
+        <ThemedText type="small" style={styles.conflictNoteText}>
+          Reports you made as a guest stay with the guest account. After you switch, you cannot get
+          back to them.
+        </ThemedText>
+      </View>
+
+      {switching === 'failed' && (
+        <ThemedText type="small" role="alert">
+          Could not switch. Check your connection and try again.
+        </ThemedText>
+      )}
+
+      {/* Equal halves: neither choice is the "wrong" one. Staying keeps the reports. */}
+      <View style={styles.conflictChoices}>
+        <Button
+          variant="secondary"
+          style={styles.conflictChoice}
+          isDisabled={switching === 'working'}
+          onPress={onStay}>
+          Stay as guest
+        </Button>
+        <Button
+          style={styles.conflictChoice}
+          isDisabled={switching === 'working'}
+          onPress={switchAccount}>
+          <BrandIcon xml={GOOGLE_LOGO} size={22} />
+          <Button.Label>{switching === 'working' ? 'Switching…' : 'Switch'}</Button.Label>
+        </Button>
+      </View>
     </ThemedView>
   );
 }
@@ -318,31 +351,48 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderRadius: Spacing.three,
   },
-  menu: {
-    borderRadius: Spacing.three,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    minHeight: 56,
-    paddingHorizontal: Spacing.three,
-    // Keeps the keyboard focus ring on the card's rounded shape.
-    borderRadius: Spacing.three,
-  },
-  menuRowDivided: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-  },
-  menuLabel: {
-    flex: 1,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
   cardAction: {
     marginTop: Spacing.two,
+  },
+  // Same surface as the card it replaces, with more room between its three parts.
+  conflict: {
+    gap: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  conflictHeading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+  },
+  conflictIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictTitle: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  conflictName: {
+    fontWeight: 600,
+  },
+  conflictNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  conflictNoteText: {
+    flex: 1,
+  },
+  conflictChoices: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  conflictChoice: {
+    flex: 1,
   },
   choices: {
     flexDirection: 'row',

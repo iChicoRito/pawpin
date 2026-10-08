@@ -50,7 +50,12 @@ export function ListFilter({ owner, onOwnerChange }: ListFilterProps) {
   return (
     <>
       {/* Small beside the title; the touch area reaches past it to a full thumb's size. */}
-      <Button variant="secondary" size="sm" hitSlop={8} onPress={() => setIsOpen(true)}>
+      <Button
+        variant="secondary"
+        size="sm"
+        hitSlop={8}
+        style={styles.button}
+        onPress={() => setIsOpen(true)}>
         <HugeiconsIcon icon={FilterHorizontalIcon} size={16} color={iconColor} />
         <Button.Label>Filter</Button.Label>
       </Button>
@@ -63,7 +68,8 @@ export function ListFilter({ owner, onOwnerChange }: ListFilterProps) {
               <BottomSheet.Title>Filter</BottomSheet.Title>
 
               <View style={styles.group}>
-                <ThemedText type="smallBold" role="heading" themeColor="textSecondary">
+                {/* Medium weight, like a form label: it names the control under it. */}
+                <ThemedText type="small" role="heading" themeColor="textSecondary">
                   Reports from
                 </ThemedText>
                 <Tabs
@@ -85,7 +91,7 @@ export function ListFilter({ owner, onOwnerChange }: ListFilterProps) {
 
               <View style={styles.group}>
                 <View style={styles.distanceHeading}>
-                  <ThemedText type="smallBold" role="heading" themeColor="textSecondary">
+                  <ThemedText type="small" role="heading" themeColor="textSecondary">
                     Distance
                   </ThemedText>
                   {/* Follows the thumb, so the number is read before the search runs. */}
@@ -130,6 +136,11 @@ export function ListFilter({ owner, onOwnerChange }: ListFilterProps) {
 }
 
 const styles = StyleSheet.create({
+  // Keeps its own width at the end of the row it is put in, whatever is beside it.
+  button: {
+    flexShrink: 0,
+    alignSelf: 'center',
+  },
   // Groups sit further apart than a heading and its control.
   content: {
     gap: Spacing.four,

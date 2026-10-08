@@ -2,6 +2,7 @@ import { Button, Dialog } from 'heroui-native';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
@@ -45,11 +46,11 @@ export function GoogleSignInDialog({ isOpen, onClose }: GoogleSignInDialogProps)
         <Dialog.Overlay />
         <Dialog.Content>
           <Dialog.Title>
-            {isConflict ? 'This Google account already has a PawPin account' : 'Sign in to respond'}
+            {isConflict ? 'This Google account is already on PawPin' : 'Sign in to respond'}
           </Dialog.Title>
           <Dialog.Description>
             {isConflict
-              ? 'Switch to it? Reports made as a guest will stay with the guest account.'
+              ? 'It has its own account, so it cannot be joined to this guest. If you switch, reports you made as a guest stay behind and you cannot get back to them.'
               : 'Rescuers need an account others can trust. Sign in with Google and your reports stay yours.'}
           </Dialog.Description>
           {status === 'failed' && (
@@ -59,16 +60,19 @@ export function GoogleSignInDialog({ isOpen, onClose }: GoogleSignInDialogProps)
           )}
           <View style={styles.choices}>
             <Button variant="secondary" onPress={close}>
-              {isConflict ? 'Cancel' : 'Not now'}
+              {isConflict ? 'Stay as guest' : 'Not now'}
             </Button>
             <Button
               isDisabled={status === 'working'}
               onPress={() => run(isConflict ? signInWithGoogle : linkGoogle)}>
-              {status === 'working'
-                ? 'Signing in…'
-                : isConflict
-                  ? 'Switch account'
-                  : 'Sign in with Google'}
+              <BrandIcon xml={GOOGLE_LOGO} size={22} />
+              <Button.Label>
+                {status === 'working'
+                  ? 'Signing in…'
+                  : isConflict
+                    ? 'Switch'
+                    : 'Sign in with Google'}
+              </Button.Label>
             </Button>
           </View>
         </Dialog.Content>
