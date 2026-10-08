@@ -1,13 +1,16 @@
 import { StyleSheet } from 'react-native';
 
+import { ReportPermissions } from '@/components/report-permissions';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
 export default function ReportScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="subtitle">Report</ThemedText>
-    </ThemedView>
+    <ReportPermissions>
+      <ThemedView style={styles.container}>
+        <ThemedText themeColor="textSecondary">Camera comes next.</ThemedText>
+      </ThemedView>
+    </ReportPermissions>
   );
 }
 
