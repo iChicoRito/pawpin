@@ -10,7 +10,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { Image } from 'expo-image';
 import { useIsFocused, useRouter } from 'expo-router';
-import { Button, Spinner, useThemeColor } from 'heroui-native';
+import { Button, Skeleton, Spinner, useThemeColor } from 'heroui-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -144,25 +144,40 @@ function NearbyMap() {
 
   // Nothing to center the map on yet.
   if (!place) {
+    if (failure && !isLoading) {
+      return (
+        <ThemedView style={[styles.container, styles.waiting]}>
+          <ThemedText role="alert" style={styles.centered}>
+            {message}
+          </ThemedText>
+          <Button variant="secondary" onPress={refresh}>
+            Try again
+          </Button>
+        </ThemedView>
+      );
+    }
+    // The map's own outline while the phone finds itself: the map as a grey field, with the
+    // chooser, the key, and the location button where they will be. Nothing jumps when it arrives.
     return (
-      <ThemedView style={[styles.container, styles.waiting]}>
-        {failure && !isLoading ? (
-          <>
-            <ThemedText role="alert" style={styles.centered}>
-              {message}
+      <ThemedView style={styles.container}>
+        {/* Pulses in place. A shimmer sweeping a whole screen is a lot of movement. */}
+        <Skeleton variant="pulse" className="absolute inset-0 rounded-none" />
+        {/* In the very middle, on its own small surface so it reads over the grey. */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.waiting]}>
+          <View style={[styles.panel, styles.loading, panel]}>
+            <Spinner size="sm" />
+            <ThemedText type="small" aria-live="polite">
+              Loading map…
             </ThemedText>
-            <Button variant="secondary" onPress={refresh}>
-              Try again
-            </Button>
-          </>
-        ) : (
-          <>
-            <Spinner />
-            <ThemedText type="small" themeColor="textSecondary" aria-live="polite">
-              Finding your location…
-            </ThemedText>
-          </>
-        )}
+          </View>
+        </View>
+        <View pointerEvents="none" style={[styles.top, { top: insets.top + Spacing.two }]}>
+          <View style={[styles.panel, styles.ghostChooser, panel]} />
+        </View>
+        <View pointerEvents="none" style={styles.legendBar}>
+          <View style={[styles.legend, styles.ghostLegend, panel]} />
+        </View>
+        <View pointerEvents="none" style={[styles.panel, styles.fab, panel]} />
       </ThemedView>
     );
   }
@@ -437,6 +452,21 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
+  },
+  // Stand-ins for the chooser and the key while the map is not there yet. Same sizes as the real ones.
+  loading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  ghostChooser: {
+    height: CHOOSER_HEIGHT,
+  },
+  ghostLegend: {
+    width: 280,
+    maxWidth: '100%',
   },
   // A pill along the bottom, above the map credit. Wraps to a second line on a very narrow phone
   // instead of running off the screen.

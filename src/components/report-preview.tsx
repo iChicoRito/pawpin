@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { BottomSheet, Button, Chip, useThemeColor } from 'heroui-native';
+import { BottomSheet, Button, Chip } from 'heroui-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { URGENCY_CHIP } from '@/components/report-card';
@@ -27,7 +27,6 @@ type ReportPreviewProps = {
  */
 export function ReportPreview({ report, isOpen, onClose, onView }: ReportPreviewProps) {
   const { session } = useSession();
-  const border = useThemeColor('border');
   const directions = useDirections(report);
 
   // Condition, size, and color on one quiet line. Only what the reporter gave.
@@ -86,34 +85,28 @@ export function ReportPreview({ report, isOpen, onClose, onView }: ReportPreview
                 </View>
               </View>
 
-              {/* 3. Where, under its own small heading and a line, as on the report page. */}
-              {(report.landmark || report.accuracyM != null) && (
-                <View style={[styles.where, { borderTopColor: border }]}>
-                  <ThemedText type="smallBold" role="heading" themeColor="textSecondary">
-                    Where
-                  </ThemedText>
-                  {report.landmark && (
-                    <ThemedText numberOfLines={2} style={styles.landmark}>
-                      {report.landmark}
-                    </ThemedText>
-                  )}
-                  {report.accuracyM != null && (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      Location accurate to about {Math.round(report.accuracyM)} m.
-                    </ThemedText>
-                  )}
+              {/* 3. Go, or read more first. Going is the main one: two taps from opening the app. */}
+              {report.reporterId === session?.user.id ? (
+                // The reporter was there: they need no route to their own report. Reading it is
+                // the one thing left to do, so that is the main button.
+                <View style={styles.actions}>
+                  <Button variant="secondary" onPress={onClose}>
+                    Close
+                  </Button>
+                  <Button style={styles.mainAction} onPress={() => onView(report)}>
+                    View report
+                  </Button>
+                </View>
+              ) : (
+                <View style={styles.actions}>
+                  <Button variant="secondary" onPress={() => onView(report)}>
+                    View report
+                  </Button>
+                  <Button style={styles.mainAction} onPress={directions.openGoogleMaps}>
+                    Get directions
+                  </Button>
                 </View>
               )}
-
-              {/* 4. Go, or read more first. Going is the main one: two taps from opening the app. */}
-              <View style={styles.actions}>
-                <Button variant="secondary" onPress={() => onView(report)}>
-                  View report
-                </Button>
-                <Button style={styles.mainAction} onPress={directions.openGoogleMaps}>
-                  Get directions
-                </Button>
-              </View>
             </View>
           )}
         </BottomSheet.Content>
@@ -172,14 +165,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.one,
     marginTop: Spacing.two,
-  },
-  where: {
-    gap: Spacing.half,
-    paddingTop: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  landmark: {
-    fontWeight: 600,
   },
   actions: {
     flexDirection: 'row',

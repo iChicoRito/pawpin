@@ -1,11 +1,10 @@
 import { Image } from 'expo-image';
-import { Card, Chip, Skeleton } from 'heroui-native';
+import { Button, Card, Chip, Skeleton } from 'heroui-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { useSession } from '@/hooks/use-session';
 import { formatAge, formatDistance } from '@/lib/format';
 import type { NearbyReport } from '@/lib/nearby';
 import { ANIMAL_TYPES, URGENCIES, type ReportUrgency } from '@/lib/reports';
@@ -36,72 +35,71 @@ export function ReportCard({ report, onPress }: ReportCardProps) {
   const distance = formatDistance(report.distanceM);
   const age = formatAge(report.createdAt);
   const isResponding = report.status === 'responding';
-  // People see their own reports in the list too. The mark tells them it is not someone else's.
-  const { session } = useSession();
-  const isMine = report.reporterId === session?.user.id;
   const spoken = [
     animal,
     urgency,
-    isMine && 'your report',
     isResponding && 'someone is on the way',
     `${distance} away`,
     `reported ${age.toLowerCase()}`,
-    report.landmark,
+    report.landmark?.trim() || 'no landmark given',
   ]
     .filter(Boolean)
     .join(', ');
 
   const body = (
     <Card variant="default" style={styles.card}>
-      {report.photos[0] ? (
-        <Image source={{ uri: report.photos[0] }} style={styles.photo} />
-      ) : (
-        <ThemedView type="backgroundSelected" style={styles.photo} />
-      )}
+      <View style={styles.row}>
+        {report.photos[0] ? (
+          <Image source={{ uri: report.photos[0] }} style={styles.photo} />
+        ) : (
+          <ThemedView type="backgroundSelected" style={styles.photo} />
+        )}
 
-      <View style={styles.text}>
-        {/* What it is on the left, how far on the right: the two things a rescuer scans for. */}
-        <View style={styles.top}>
-          <ThemedText style={styles.animal} numberOfLines={1}>
-            {animal}
-          </ThemedText>
-          <ThemedText type="small" style={styles.distance}>
-            {distance}
-          </ThemedText>
-        </View>
+        <View style={styles.text}>
+          {/* What it is on the left, how far on the right: the two things a rescuer scans for. */}
+          <View style={styles.top}>
+            <ThemedText style={styles.animal} numberOfLines={1}>
+              {animal}
+            </ThemedText>
+            <ThemedText type="small" style={styles.distance}>
+              {distance}
+            </ThemedText>
+          </View>
 
-        <View style={styles.chips}>
-          <Chip variant="secondary" size="sm" color={URGENCY_CHIP[report.urgency]}>
-            {urgency}
-          </Chip>
-          {isMine && (
-            <Chip variant="secondary" size="sm" color="accent">
-              Your report
+          <View style={styles.chips}>
+            <Chip variant="secondary" size="sm" color={URGENCY_CHIP[report.urgency]}>
+              {urgency}
             </Chip>
-          )}
-          {isResponding && (
-            <Chip variant="secondary" size="sm" color="success">
-              On the way
-            </Chip>
-          )}
-        </View>
+          </View>
 
-        {/* The landmark gives way and is cut short; the age keeps its full width on the right. */}
-        <View style={styles.bottom}>
-          {report.landmark && (
+          {/* The landmark gives way and is cut short; the age keeps its full width on the right. */}
+          <View style={styles.bottom}>
+            {/* Always a line here, so every card has the same shape. Slanted when it is the
+                stand-in, so it is not read as a place name. */}
             <ThemedText
               type="small"
               themeColor="textSecondary"
               numberOfLines={1}
-              style={styles.landmark}>
-              {report.landmark}
+              style={[styles.landmark, !report.landmark?.trim() && styles.noLandmark]}>
+              {report.landmark?.trim() || 'No landmark given'}
             </ThemedText>
-          )}
-          <ThemedText themeColor="textSecondary" numberOfLines={1} style={styles.age}>
-            {age}
-          </ThemedText>
+            <ThemedText themeColor="textSecondary" numberOfLines={1} style={styles.age}>
+              {age}
+            </ThemedText>
+          </View>
         </View>
       </View>
+
+      {/* Across the foot of the card when a rescuer is going. Touches pass through it, so a tap
+          here opens the report like a tap anywhere else on the card. Read out as part of the
+          card's own line, not as a second button. */}
+      {isResponding && (
+        <View pointerEvents="none" aria-hidden>
+          <Button variant="tertiary" size="sm">
+            On the way
+          </Button>
+        </View>
+      )}
     </Card>
   );
 
@@ -127,7 +125,7 @@ export function ReportCard({ report, onPress }: ReportCardProps) {
 /** The shape of a card while the first search runs: photo, name and distance, chip and age. */
 export function ReportCardSkeleton() {
   return (
-    <Card variant="default" style={styles.card}>
+    <Card variant="default" style={[styles.card, styles.row]}>
       <Skeleton className="h-16 w-16 rounded-2xl" />
       <View style={[styles.text, styles.skeletonText]}>
         <View style={styles.skeletonRow}>
@@ -147,11 +145,15 @@ const styles = StyleSheet.create({
   // Surface and corner come from HeroUI Card, as on the report form. Laid out as a row with less
   // padding: a list is scanned, so more reports on one screen matters more than air around each.
   card: {
+    gap: Spacing.two,
+    padding: Spacing.two,
+    paddingRight: Spacing.three,
+  },
+  // Photo on the left, the words beside it.
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    padding: Spacing.two,
-    paddingRight: Spacing.three,
   },
   photo: {
     width: PHOTO_SIZE,
@@ -192,6 +194,9 @@ const styles = StyleSheet.create({
   landmark: {
     flex: 1,
     fontWeight: 400,
+  },
+  noLandmark: {
+    fontStyle: 'italic',
   },
   // The smallest text on the card: it is read last. Pushed to the right edge, under the distance,
   // also when there is no landmark beside it.

@@ -7,15 +7,21 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocationGate } from '@/components/location-gate';
-import { RadiusChoice } from '@/components/radius-choice';
+import { ListFilter, type ReportOwner } from '@/components/list-filter';
 import { ReportCard, ReportCardSkeleton } from '@/components/report-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
+import { useSession } from '@/hooks/use-session';
 import { RADIUS_CHOICES } from '@/lib/nearby';
 
 const TITLE = 'Nearby strays';
+const OWNER_SUMMARY: Record<ReportOwner, string> = {
+  all: 'All reports',
+  mine: 'Your reports',
+  others: 'Reports from others',
+};
 /** About one screen of cards, so the page does not jump much when the real ones arrive. */
 const SKELETON_CARDS = 5;
 
@@ -35,6 +41,13 @@ function NearbyList() {
   const { reports, radiusM, status, failure, refresh, setRadius } = useNearbyReports();
   const muted = useThemeColor('muted');
   const [isPulling, setIsPulling] = useState(false);
+  const { session } = useSession();
+  // Whose reports to show. Kept while the app is open, like the distance.
+  const [owner, setOwner] = useState<ReportOwner>('all');
+  const shown =
+    owner === 'all'
+      ? reports
+      : reports.filter((report) => (report.reporterId === session?.user.id) === (owner === 'mine'));
 
   // Tabs stay mounted, so this runs each time the List comes back into view, not only once.
   useEffect(() => {
@@ -51,7 +64,7 @@ function NearbyList() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        data={reports}
+        data={shown}
         keyExtractor={(report) => report.id}
         renderItem={({ item }) => (
           <ReportCard
@@ -68,10 +81,19 @@ function NearbyList() {
         }}
         ListHeaderComponent={
           <View style={styles.header}>
-            <ThemedText type="subtitle" role="heading">
-              {TITLE}
-            </ThemedText>
-            <RadiusChoice />
+            {/* The button sits level with the middle of the two lines beside it. */}
+            <View style={styles.titleRow}>
+              <View style={styles.title}>
+                <ThemedText type="subtitle" role="heading">
+                  {TITLE}
+                </ThemedText>
+                {/* The filter is out of sight in its drawer, so what it is set to is said here. */}
+                <ThemedText type="small" themeColor="textSecondary" aria-live="polite">
+                  {OWNER_SUMMARY[owner]} · Within {radius}
+                </ThemedText>
+              </View>
+              <ListFilter owner={owner} onOwnerChange={setOwner} />
+            </View>
             {failure && !isLoading && (
               <View style={styles.failure}>
                 <Alert status="danger" role="alert">
@@ -95,7 +117,7 @@ function NearbyList() {
         // screen, which is what lets the empty message sit in the middle of it.
         ListFooterComponentStyle={styles.footer}
         ListFooterComponent={
-          reports.length > 0 ? null : isLoading && !isPulling ? (
+          shown.length > 0 ? null : isLoading && !isPulling ? (
             // The pull-down spinner already shows a refresh; these stand in for a list with nothing yet.
             // Read out as one line, not as a row of empty shapes.
             <View accessible aria-busy aria-label="Looking for strays near you" style={styles.loading}>
@@ -110,15 +132,25 @@ function NearbyList() {
               </ThemedView>
               <View style={styles.emptyText}>
                 <ThemedText role="heading" style={styles.emptyTitle}>
-                  No strays within {radius}
+                  {owner === 'mine'
+                    ? `None of your reports within ${radius}`
+                    : owner === 'others'
+                      ? `No reports from others within ${radius}`
+                      : `No strays within ${radius}`}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-                  {wider
-                    ? 'Nobody has reported a stray this close to you. Look further out, or pull down to check again.'
-                    : 'Nobody has reported a stray this far out. Pull down to check again.'}
+                  {reports.length > 0
+                    ? 'There are reports nearby that this filter leaves out.'
+                    : wider
+                      ? 'Nobody has reported a stray this close to you. Look further out, or pull down to check again.'
+                      : 'Nobody has reported a stray this far out. Pull down to check again.'}
                 </ThemedText>
               </View>
-              {wider ? (
+              {reports.length > 0 ? (
+                <Button variant="secondary" onPress={() => setOwner('all')}>
+                  Show all reports
+                </Button>
+              ) : wider ? (
                 <Button variant="secondary" onPress={() => setRadius(wider.value)}>
                   Search within {wider.label}
                 </Button>
@@ -154,11 +186,22 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    gap: Spacing.three,
+    gap: Spacing.one,
     marginBottom: Spacing.two,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  // The title and the line under it. Gives way to the button on a narrow phone.
+  title: {
+    flex: 1,
+    gap: Spacing.one,
   },
   failure: {
     gap: Spacing.two,
+    marginTop: Spacing.two,
   },
   // Same gap as between the real cards.
   loading: {
