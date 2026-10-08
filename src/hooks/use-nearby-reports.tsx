@@ -18,6 +18,8 @@ type NearbyState = {
   failure: 'location' | 'network' | null;
   /** Reads the viewer's location again and searches. The caller must hold the location permission. */
   refresh: () => Promise<void>;
+  /** Searches again from the place already read, after a report changed. No new location read. */
+  reload: () => Promise<void>;
   /** Searches again at a new distance, from the place already read. */
   setRadius: (radiusM: number) => void;
 };
@@ -29,6 +31,7 @@ const NearbyReportsContext = createContext<NearbyState>({
   status: 'idle',
   failure: null,
   refresh: async () => {},
+  reload: async () => {},
   setRadius: () => {},
 });
 
@@ -104,6 +107,9 @@ export function NearbyReportsProvider({ children }: PropsWithChildren) {
         status,
         failure,
         refresh: () => search(radiusM, null),
+        reload: async () => {
+          if (place) await search(radiusM, place);
+        },
         setRadius: (next) => {
           setRadiusM(next);
           search(next, place);

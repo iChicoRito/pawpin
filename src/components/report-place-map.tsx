@@ -37,6 +37,9 @@ export function ReportPlaceMap({ latitude, longitude, urgency }: ReportPlaceMapP
       style={[styles.box, { borderColor: border }]}>
       <Map
         style={styles.fill}
+        // Drawn as part of the page, not on a surface of its own, so a blur over the page (the
+        // confirm dialog on the report page) reaches the map too. Slower, which a still map can afford.
+        androidView="texture"
         mapStyle={mapStyleFor(isDark)}
         compass={false}
         logo={false}

@@ -38,6 +38,8 @@ export type NearbyReport = {
   createdAt: string;
   /** From the viewer's place at the time of the search. */
   distanceM: number;
+  /** Who is on the way, while the status is `responding`. */
+  rescuerId: string | null;
 };
 
 /** Active reports within `radiusM` of a place, nearest first. Throws if the search fails. */
@@ -68,6 +70,7 @@ export async function fetchNearbyReports(place: ReportPlace, radiusM: number) {
       photoTakenAt: row.photo_taken_at,
       createdAt: row.created_at,
       distanceM: row.distance_m,
+      rescuerId: row.rescuer_id,
     })
   );
 }

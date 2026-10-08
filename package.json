@@ -43,6 +43,7 @@
     "tailwind-merge": "^3.7.0",
     "tailwind-variants": "^3.3.1",
     "tailwindcss": "^4.3.3",
+    "thesvg": "^3.3.12",
     "uniwind": "^1.12.2"
   },
   "devDependencies": {
