@@ -1,4 +1,4 @@
--- Checks for 0007_claims.sql.
+-- Checks for 0007_claims.sql and 0009_one_claim_per_rescuer.sql.
 -- Paste into the Supabase SQL Editor and run. Any wrong result stops with an error that starts
 -- with FAIL. Everything is rolled back at the end, so nothing is saved.
 
@@ -62,6 +62,20 @@ begin
   select rescuer_id into found from public.nearby_reports(14.6, 121.0, 5000) where id = r1;
   if found is distinct from one then
     raise exception 'FAIL: the nearby search should name rescuer one, got %', found;
+  end if;
+
+  -- One rescue at a time: while on the way to the first report, rescuer one cannot claim another.
+  begin
+    perform public.claim_report(r2);
+    raise exception 'FAIL: a rescuer claimed a second report while on the way to the first';
+  exception when raise_exception then
+    if sqlerrm <> 'already_on_the_way' then
+      raise exception 'FAIL: expected already_on_the_way, got %', sqlerrm;
+    end if;
+  end;
+  select status into report from public.reports where id = r2;
+  if report.status <> 'reported' then
+    raise exception 'FAIL: a refused second claim changed the report to %', report.status;
   end if;
 
   -- Rescuer two can neither claim it nor record its outcome.
@@ -170,11 +184,19 @@ begin
   if total <> 0 then
     raise exception 'FAIL: a rescued report still came back from the nearby search';
   end if;
-  -- The other report is untouched and still found.
+  -- The other report is still open and still found.
   select count(*) into total from public.nearby_reports(14.6, 121.0, 5000) where id = r2;
   if total <> 1 then
     raise exception 'FAIL: the open report should still come back, got % rows', total;
   end if;
+
+  -- With the first rescue finished, rescuer one is free to go to another.
+  perform public.claim_report(r2);
+  select status into report from public.reports where id = r2;
+  if report.status <> 'responding' then
+    raise exception 'FAIL: a free rescuer could not claim the next report, got %', report.status;
+  end if;
+  perform public.cancel_claim(r2);
 
   -- A report that has ended cannot be claimed.
   begin

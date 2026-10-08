@@ -3,7 +3,10 @@ import { supabase } from '@/lib/supabase';
 // A report's status changes only through these database functions (0007_claims.sql). Each throws
 // when the database refuses; the short reason is in the error's message, see `refusalOf`.
 
-/** "I'm on my way": the report becomes Responding. Refused for guests and for a report already taken. */
+/**
+ * "I'm on my way": the report becomes Responding. Refused for guests, for a report already taken,
+ * and for a rescuer who is already on the way to another report.
+ */
 export async function claimReport(reportId: string) {
   const { error } = await supabase.rpc('claim_report', { p_report_id: reportId });
   if (error) throw error;
@@ -29,5 +32,6 @@ export function refusalOf(error: unknown) {
   const message = String((error as { message?: string } | null)?.message);
   if (message.includes('report_not_open')) return 'report_not_open';
   if (message.includes('no_active_claim')) return 'no_active_claim';
+  if (message.includes('already_on_the_way')) return 'already_on_the_way';
   return null;
 }

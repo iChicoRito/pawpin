@@ -153,12 +153,17 @@ export default function ReportDetailScreen() {
         label:
           refusal === 'report_not_open'
             ? 'Someone else is already on the way'
-            : refusal === 'no_active_claim'
-              ? 'This report has changed'
-              : 'Could not send',
-        description: refusal
-          ? 'This page now shows the latest.'
-          : 'Check your connection and try again.',
+            : refusal === 'already_on_the_way'
+              ? 'You are already on the way to another animal'
+              : refusal === 'no_active_claim'
+                ? 'This report has changed'
+                : 'Could not send',
+        description:
+          refusal === 'already_on_the_way'
+            ? 'Finish that rescue or give it up first. Open it and tap Update status.'
+            : refusal
+              ? 'This page now shows the latest.'
+              : 'Check your connection and try again.',
       });
       if (refusal) await reload();
     } finally {
