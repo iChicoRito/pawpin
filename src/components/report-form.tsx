@@ -19,7 +19,14 @@ import {
   useToast,
 } from 'heroui-native';
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -28,6 +35,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { ReportSent, ToastIcon } from '@/components/report-sent';
 import { useSession } from '@/hooks/use-session';
+import { mapInkFor, mapStyleFor, STREET_ZOOM } from '@/lib/map';
 import {
   ANIMAL_TYPES,
   COLORS,
@@ -41,10 +49,6 @@ import {
   type ReportDraft,
 } from '@/lib/reports';
 
-// Free OpenStreetMap tiles. No key and no account.
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
-/** Close enough to tell one gate or corner from the next. */
-const STREET_ZOOM = 17;
 const MAP_HEIGHT = 200;
 const OTHER_MAX_LENGTH = 40;
 const COLOR_MAX_LENGTH = 40;
@@ -71,6 +75,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
   const { session } = useSession();
   const [status, setStatus] = useState<SendStatus>('idle');
   const [border, accentForeground] = useThemeColor(['border', 'accent-foreground']);
+  const isDark = useColorScheme() === 'dark';
 
   const update = (changes: Partial<ReportDraft>) => setDraft({ ...draft, ...changes });
   const isSending = status === 'sending';
@@ -193,7 +198,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
             <View style={[styles.map, { borderColor: border }]}>
               <Map
                 style={styles.container}
-                mapStyle={MAP_STYLE}
+                mapStyle={mapStyleFor(isDark)}
                 compass={false}
                 logo={false}
                 touchRotate={false}
@@ -219,7 +224,8 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
               <View pointerEvents="none" style={styles.pinLayer}>
                 <View style={styles.pin}>
                   <View style={styles.pinHead} />
-                  <View style={styles.pinStem} />
+                  {/* The stem is dark on the light map and white on the dark one. */}
+                  <View style={[styles.pinStem, { backgroundColor: mapInkFor(isDark).ink }]} />
                 </View>
               </View>
               <Text style={styles.credit}>© OpenStreetMap contributors</Text>
@@ -545,7 +551,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     transform: [{ translateY: -(PIN_HEAD + PIN_STEM) / 2 }],
   },
-  // Fixed colors, not theme colors: the map is light in both light and dark mode.
+  // Red with a white edge reads on the light and the dark map alike.
   pinHead: {
     width: PIN_HEAD,
     height: PIN_HEAD,

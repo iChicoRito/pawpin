@@ -11,7 +11,7 @@ export const RADIUS_CHOICES = [
 
 export const DEFAULT_RADIUS_M = 5000;
 
-// Pin colors. Fixed, not theme colors: the map is light in both light and dark mode.
+// Pin colors. The same on the light and the dark map, each with a white edge to set it off.
 // Each is 3:1 or better against white.
 export const URGENCY_COLORS: Record<ReportUrgency, string> = {
   critical: '#C62828',
