@@ -1,6 +1,35 @@
 export const MAX_PHOTOS = 3;
+/** A reading worse than this many meters makes the form ask the reporter to check the pin. */
+export const POOR_ACCURACY_M = 50;
 
 export type ReportUrgency = 'critical' | 'needs_help_soon' | 'just_sighted';
+
+// The value is what gets saved; the label is what the reporter reads.
+export const ANIMAL_TYPES = [
+  { value: 'dog', label: 'Dog' },
+  { value: 'cat', label: 'Cat' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+export const SIZES = [
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'large', label: 'Large' },
+] as const;
+
+export const CONDITIONS = [
+  { value: 'injured', label: 'Injured' },
+  { value: 'sick', label: 'Sick' },
+  { value: 'healthy', label: 'Looks healthy' },
+  { value: 'unsure', label: 'Not sure' },
+] as const;
+
+// Values match the report_urgency type in the database.
+export const URGENCIES: readonly { value: ReportUrgency; label: string }[] = [
+  { value: 'critical', label: 'Critical' },
+  { value: 'needs_help_soon', label: 'Needs help soon' },
+  { value: 'just_sighted', label: 'Just sighted' },
+];
 
 /** Where the phone was at one moment. */
 export type ReportPlace = {
