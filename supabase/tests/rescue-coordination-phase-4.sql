@@ -1,4 +1,4 @@
--- Checks for 0010_closing_reports.sql.
+-- Checks for 0010_closing_reports.sql and 0011_own_report.sql.
 -- Paste into the Supabase SQL Editor and run. Any wrong result stops with an error that starts
 -- with FAIL. Everything is rolled back at the end, so nothing is saved.
 
@@ -14,8 +14,8 @@ set local role authenticated;
 set local request.jwt.claims =
   '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated","is_anonymous":false}';
 
--- Four reports about 100 m north of the point 14.6, 121.0. Longitude first.
--- Their last change is set on the way in: A and B 73 hours back, C 71 hours, D now.
+-- Five reports about 100 m north of the point 14.6, 121.0. Longitude first.
+-- Their last change is set on the way in: A and B 73 hours back, C 71 hours, D and E now.
 insert into public.reports (id, reporter_id, location, urgency, updated_at) values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-00000000000a',
    'SRID=4326;POINT(121.0 14.6009)', 'critical', now() - interval '73 hours'),
@@ -24,6 +24,8 @@ insert into public.reports (id, reporter_id, location, urgency, updated_at) valu
   ('00000000-0000-4000-8000-0000000000c3', '00000000-0000-4000-8000-00000000000a',
    'SRID=4326;POINT(121.0 14.6009)', 'just_sighted', now() - interval '71 hours'),
   ('00000000-0000-4000-8000-0000000000d4', '00000000-0000-4000-8000-00000000000a',
+   'SRID=4326;POINT(121.0 14.6009)', 'just_sighted', now()),
+  ('00000000-0000-4000-8000-0000000000e5', '00000000-0000-4000-8000-00000000000a',
    'SRID=4326;POINT(121.0 14.6009)', 'just_sighted', now());
 
 -- The rescuer claims B. A claim is activity: B's 72 hours start again.
@@ -60,6 +62,7 @@ declare
   b constant uuid := '00000000-0000-4000-8000-0000000000b2';
   c constant uuid := '00000000-0000-4000-8000-0000000000c3';
   d constant uuid := '00000000-0000-4000-8000-0000000000d4';
+  e constant uuid := '00000000-0000-4000-8000-0000000000e5';
   found text;
   total integer;
 begin
@@ -95,6 +98,34 @@ begin
   select count(*) into total from public.claims where report_id = b and status = 'cancelled';
   if total <> 1 then
     raise exception 'FAIL: closing should cancel the claim, cancelled claims: %', total;
+  end if;
+
+  -- A reporter does not go "on the way" to their own report.
+  begin
+    perform public.claim_report(d);
+    raise exception 'FAIL: a reporter claimed their own report';
+  exception when raise_exception then
+    if sqlerrm <> 'own_report' then
+      raise exception 'FAIL: expected own_report, got %', sqlerrm;
+    end if;
+  end;
+
+  -- The reporter helped E themselves: it ends as rescued, in their name.
+  perform public.close_report(e, true);
+  select status into found from public.reports where id = e;
+  if found <> 'rescued' then
+    raise exception 'FAIL: a report closed as helped should end rescued, got %', found;
+  end if;
+  select count(*) into total from public.claims
+  where report_id = e
+    and rescuer_id = '00000000-0000-4000-8000-00000000000a'
+    and status = 'completed';
+  if total <> 1 then
+    raise exception 'FAIL: expected one finished claim in the reporter''s name, got %', total;
+  end if;
+  select count(*) into total from public.nearby_reports(14.6, 121.0, 5000) where id = e;
+  if total <> 0 then
+    raise exception 'FAIL: a report the reporter rescued still came back from the nearby search';
   end if;
 
   -- Closed is final.
