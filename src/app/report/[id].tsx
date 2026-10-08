@@ -111,7 +111,7 @@ export default function ReportDetailScreen() {
     return (
       <ThemedView style={[styles.container, styles.missing]}>
         <ThemedText role="alert" style={styles.centered}>
-          This report is no longer nearby.
+          This report is no longer active or nearby.
         </ThemedText>
         <Button variant="secondary" onPress={() => router.back()}>
           Back
