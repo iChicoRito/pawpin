@@ -2,11 +2,12 @@ import Alert02Icon from '@hugeicons/core-free-icons/Alert02Icon';
 import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
+import Notification01Icon from '@hugeicons/core-free-icons/Notification01Icon';
 import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import UserSwitchIcon from '@hugeicons/core-free-icons/UserSwitchIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import {
   Avatar,
   Button,
@@ -16,7 +17,7 @@ import {
   Typography,
   useThemeColor,
 } from 'heroui-native';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,9 +26,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
+import { fetchAlertRadius, useAlertPermission } from '@/lib/alerts';
 import { APPEARANCES, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
 import { initialsOf } from '@/lib/format';
+import { RADIUS_CHOICES } from '@/lib/nearby';
 
 export default function ProfileScreen() {
   const { session, isGuest, name, avatarUrl } = useSession();
@@ -35,6 +38,20 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [foreground, accent] = useThemeColor(['foreground', 'accent']);
   const appearance = useAppearance();
+  const isFocused = useIsFocused();
+  const [permission] = useAlertPermission();
+  const [alertRadiusM, setAlertRadiusM] = useState<number | null>(null);
+  const userId = session?.user.id;
+
+  // Tabs stay mounted, so this runs each time the Profile tab comes back into view: the distance
+  // may have just been changed on the Alerts screen. A failed read leaves the row's line as it was.
+  useEffect(() => {
+    if (!isFocused || !userId) return;
+    fetchAlertRadius(userId)
+      .then(setAlertRadiusM)
+      .catch(() => {});
+  }, [isFocused, userId]);
+  const alertDistance = RADIUS_CHOICES.find((choice) => choice.value === alertRadiusM)?.label;
 
   const displayName = name ?? (isGuest ? 'Guest' : 'Google account');
   const joined =
@@ -58,6 +75,19 @@ export default function ProfileScreen() {
       title: 'Your rescues',
       description: 'Animals you marked as rescued.',
       onPress: () => router.push({ pathname: '/history', params: { kind: 'rescues' } }),
+    },
+    {
+      icon: Notification01Icon,
+      title: 'Alerts',
+      // Says what is chosen now, once it is known.
+      description: !permission
+        ? 'When a stray is reported near you.'
+        : !permission.granted
+          ? 'Turned off'
+          : alertDistance
+            ? `Within ${alertDistance}`
+            : 'Turned on',
+      onPress: () => router.push('/alerts'),
     },
     {
       icon: Moon02Icon,

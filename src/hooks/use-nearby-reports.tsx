@@ -2,6 +2,8 @@ import * as Location from 'expo-location';
 import { createContext, use, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import { AppState } from 'react-native';
 
+import { useSession } from '@/hooks/use-session';
+import { saveLastPlace } from '@/lib/alerts';
 import { DEFAULT_RADIUS_M, fetchNearbyReports, type NearbyReport } from '@/lib/nearby';
 import type { ReportPlace } from '@/lib/reports';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +46,7 @@ const NearbyReportsContext = createContext<NearbyState>({
 
 /** One copy of the nearby reports, shared by the Map, the List, and the report detail. */
 export function NearbyReportsProvider({ children }: PropsWithChildren) {
+  const userId = useSession().session?.user.id;
   const [reports, setReports] = useState<NearbyReport[]>([]);
   const [place, setPlace] = useState<ReportPlace | null>(null);
   const [radiusM, setRadiusM] = useState(DEFAULT_RADIUS_M);
@@ -71,6 +74,9 @@ export function NearbyReportsProvider({ children }: PropsWithChildren) {
           ),
         ]);
         here = { latitude: coords.latitude, longitude: coords.longitude, accuracyM: coords.accuracy };
+        // New reports alert the people whose last place is near. Only a fresh read is kept, never
+        // the older ones below. Not waited for: it must not hold up or fail the search.
+        if (userId) saveLastPlace(userId, here);
       } catch (error) {
         // Indoors or just after waking, the phone often cannot work out a new position in time.
         // An older one is still good enough to search by: the phone's own, then the last search's.

@@ -9,6 +9,7 @@ import '@/global.css';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { NearbyReportsProvider } from '@/hooks/use-nearby-reports';
 import { SessionProvider, useSession } from '@/hooks/use-session';
+import { useAlertRegistration } from '@/lib/alerts';
 import { loadAppearance } from '@/lib/appearance';
 
 SplashScreen.preventAutoHideAsync();
@@ -34,6 +35,7 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { session, isLoading } = useSession();
+  useAlertRegistration(session?.user.id);
 
   // The phone's own splash stays up until the saved session is read, so the wrong screen never flashes.
   if (isLoading) return null;
@@ -45,6 +47,7 @@ function RootNavigator() {
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="settings" options={{ headerShown: true, title: 'Settings' }} />
+          <Stack.Screen name="alerts" options={{ headerShown: true, title: 'Alerts' }} />
           <Stack.Screen name="appearance" options={{ headerShown: true, title: 'Appearance' }} />
           <Stack.Screen name="report/[id]" options={{ headerShown: true, title: 'Report' }} />
           {/* The screen sets its own title: "Your reports" or "Your rescues". */}

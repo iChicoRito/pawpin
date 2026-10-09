@@ -23,6 +23,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
+import { dismissAlertCard, isAlertCardDismissed, useAlertPermission } from '@/lib/alerts';
 import { mapInkFor, mapStyleFor, PAW_IMAGES, zoomForRadius } from '@/lib/map';
 import { RADIUS_CHOICES, URGENCY_COLORS } from '@/lib/nearby';
 import { URGENCIES, type ReportUrgency } from '@/lib/reports';
@@ -84,6 +85,14 @@ function NearbyMap() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const selected = reports.find((report) => report.id === selectedId);
+  // The alerts card. Hidden until this phone's "Not now" is read, so it never flashes by.
+  const [alertPermission] = useAlertPermission();
+  const [isOfferDismissed, setIsOfferDismissed] = useState(true);
+  useEffect(() => {
+    isAlertCardDismissed().then(setIsOfferDismissed);
+  }, []);
+  const canOfferAlerts =
+    !isOfferDismissed && !!alertPermission && !alertPermission.granted && alertPermission.canAskAgain;
 
   // Tabs stay mounted, so this runs each time the Map comes back into view, not only once.
   useEffect(() => {
@@ -355,6 +364,28 @@ function NearbyMap() {
             </View>
           )
         )}
+
+        {/* Offered once, to someone the phone has not yet asked about notifications. The reason
+            and the phone's own prompt are on the Alerts screen. */}
+        {canOfferAlerts && (
+          <View style={[styles.panel, styles.notice, panel]}>
+            <ThemedText type="small">Get alerts for strays near you.</ThemedText>
+            <View style={styles.offerChoices}>
+              <Button size="sm" onPress={() => router.push('/alerts')}>
+                Set up
+              </Button>
+              <Button
+                size="sm"
+                variant="tertiary"
+                onPress={() => {
+                  setIsOfferDismissed(true);
+                  dismissAlertCard();
+                }}>
+                Not now
+              </Button>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* One line along the bottom, like the strip a maps app keeps there. Three colors, three
@@ -452,6 +483,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
+  },
+  offerChoices: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   // Stand-ins for the chooser and the key while the map is not there yet. Same sizes as the real ones.
   loading: {

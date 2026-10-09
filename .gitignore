@@ -33,6 +33,10 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Firebase: the app's push setup, and any service account key that strays in
+google-services.json
+*firebase-adminsdk*.json
+
 # typescript
 *.tsbuildinfo
 
