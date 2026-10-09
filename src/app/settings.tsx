@@ -48,8 +48,8 @@ export default function SettingsScreen() {
     ? [
         {
           icon: UserIcon,
-          title: 'Your name, if you add one',
-          description: 'Nothing else about you. Guests are not asked for an email.',
+          title: 'Your guest name',
+          description: 'Made up by PawPin. Nothing else about you; guests are not asked for an email.',
         },
         {
           icon: Megaphone01Icon,
@@ -87,7 +87,7 @@ export default function SettingsScreen() {
                 <Avatar alt={displayName} size="md" color="accent" variant="soft">
                   {avatarUrl && <Avatar.Image source={{ uri: avatarUrl }} />}
                   <Avatar.Fallback>
-                    {name ? (
+                    {name && !isGuest ? (
                       initialsOf(name)
                     ) : (
                       <HugeiconsIcon icon={UserIcon} size={20} color={accent} />
@@ -124,7 +124,7 @@ export default function SettingsScreen() {
                 icon: ViewIcon,
                 title: 'People signed in to PawPin',
                 description: isGuest
-                  ? 'On each report you send, they see your name if you added one, the month you joined, and how many reports you have sent.'
+                  ? 'On each report you send, they see your guest name, the month you joined, and how many reports you have sent.'
                   : 'On each report you send, they see your name, your photo, the month you joined, and how many reports you have sent.',
               }}
             />

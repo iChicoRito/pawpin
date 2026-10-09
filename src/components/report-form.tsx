@@ -168,7 +168,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
             <ThemedText role="heading" style={styles.title}>
               Where is the animal?
             </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
               Move the map until the pin is on the exact spot.
             </ThemedText>
           </View>
@@ -489,6 +489,9 @@ const PIN_HEAD = 22;
 const PIN_STEM = 12;
 
 const styles = StyleSheet.create({
+  regular: {
+    fontWeight: 400,
+  },
   container: {
     flex: 1,
   },

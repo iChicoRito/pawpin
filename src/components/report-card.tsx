@@ -93,7 +93,11 @@ export function ReportList({ reports, onOpen }: ReportListProps) {
                 {isResponding && (
                   <View style={styles.responding}>
                     <LiveDot />
-                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                    <ThemedText
+                      type="small"
+                      themeColor="textSecondary"
+                      numberOfLines={1}
+                      style={styles.regular}>
                       {responding}
                     </ThemedText>
                   </View>
@@ -193,6 +197,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.one + Spacing.half,
     marginTop: Spacing.one,
+  },
+  regular: {
+    fontWeight: 400,
   },
   live: {
     width: 8,

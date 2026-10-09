@@ -28,9 +28,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
 export function useSession() {
   const { session, isLoading } = use(SessionContext);
   const user = session?.user;
-  // After a guest links Google, the name and photo may only be on the linked identity, so that is the fallback.
+  // After a guest links Google, the name and photo may only be on the linked identity. The Google
+  // name comes first: a guest's own name is a made-up "Guest1234", which Google's replaces.
   const google = user?.identities?.find((identity) => identity.provider === 'google')?.identity_data;
-  const name: string | undefined = user?.user_metadata?.full_name ?? google?.full_name;
+  const name: string | undefined = google?.full_name ?? user?.user_metadata?.full_name;
   const avatarUrl: string | undefined = user?.user_metadata?.avatar_url ?? google?.avatar_url;
   return { session, isLoading, isGuest: user?.is_anonymous === true, name, avatarUrl };
 }

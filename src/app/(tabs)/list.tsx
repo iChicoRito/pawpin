@@ -1,7 +1,7 @@
 import MapsSearchIcon from '@hugeicons/core-free-icons/MapsSearchIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { useIsFocused, useRouter } from 'expo-router';
-import { Alert, Button, useThemeColor } from 'heroui-native';
+import { Alert, Button, Typography, useThemeColor } from 'heroui-native';
 import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -90,11 +90,15 @@ function NearbyList() {
             {/* The button sits level with the middle of the two lines beside it. */}
             <View style={styles.titleRow}>
               <View style={styles.title}>
-                <ThemedText type="subtitle" role="heading">
+                <Typography type="h3" role="heading">
                   {TITLE}
-                </ThemedText>
+                </Typography>
                 {/* The filter is out of sight in its drawer, so what it is set to is said here. */}
-                <ThemedText type="small" themeColor="textSecondary" aria-live="polite">
+                <ThemedText
+                  type="small"
+                  themeColor="textSecondary"
+                  aria-live="polite"
+                  style={styles.regular}>
                   {OWNER_SUMMARY[owner]} · Within {radius}
                 </ThemedText>
               </View>
@@ -172,6 +176,9 @@ function NearbyList() {
 }
 
 const styles = StyleSheet.create({
+  regular: {
+    fontWeight: 400,
+  },
   container: {
     flex: 1,
   },

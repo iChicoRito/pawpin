@@ -2,7 +2,6 @@ import Alert02Icon from '@hugeicons/core-free-icons/Alert02Icon';
 import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
-import PencilEdit01Icon from '@hugeicons/core-free-icons/PencilEdit01Icon';
 import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import UserSwitchIcon from '@hugeicons/core-free-icons/UserSwitchIcon';
@@ -11,12 +10,10 @@ import { useRouter } from 'expo-router';
 import {
   Avatar,
   Button,
-  FieldError,
-  Input,
-  Label,
+  Card,
   ListGroup,
   Separator,
-  TextField,
+  Typography,
   useThemeColor,
 } from 'heroui-native';
 import { Fragment, useState } from 'react';
@@ -31,16 +28,12 @@ import { useSession } from '@/hooks/use-session';
 import { APPEARANCES, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
 import { initialsOf } from '@/lib/format';
-import { supabase } from '@/lib/supabase';
-
-const NAME_MAX_LENGTH = 40;
 
 export default function ProfileScreen() {
   const { session, isGuest, name, avatarUrl } = useSession();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [foreground, accent] = useThemeColor(['foreground', 'accent']);
-  const [isEditingName, setIsEditingName] = useState(false);
   const appearance = useAppearance();
 
   const displayName = name ?? (isGuest ? 'Guest' : 'Google account');
@@ -51,16 +44,8 @@ export default function ProfileScreen() {
       year: 'numeric',
     });
 
-  // The rows of the menu, top to bottom. Some are only for guests, some only for Google users.
+  // The rows of the menu, top to bottom.
   const options = [
-    // Google users take their name from Google, so only guests can set one here.
-    isGuest &&
-      !isEditingName && {
-        icon: PencilEdit01Icon,
-        title: name ? 'Edit name' : 'Add your name',
-        description: 'Shown to others on your reports.',
-        onPress: () => setIsEditingName(true),
-      },
     {
       icon: Megaphone01Icon,
       title: 'Your reports',
@@ -93,16 +78,16 @@ export default function ProfileScreen() {
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.four }]}>
-        <ThemedText type="subtitle" role="heading">
+        <Typography type="h3" role="heading">
           Profile
-        </ThemedText>
+        </Typography>
 
         <View style={styles.identity}>
-          <Avatar alt={displayName} size="lg" color="accent" variant="soft">
+          <Avatar alt={displayName} size="lg" color="accent" variant="soft" className="size-20">
             {avatarUrl && <Avatar.Image source={{ uri: avatarUrl }} />}
             <Avatar.Fallback>
-              {!name ? (
-                <HugeiconsIcon icon={UserIcon} size={28} color={accent} />
+              {isGuest || !name ? (
+                <HugeiconsIcon icon={UserIcon} size={36} color={accent} />
               ) : (
                 initialsOf(name)
               )}
@@ -112,20 +97,12 @@ export default function ProfileScreen() {
             <ThemedText style={styles.name} numberOfLines={2}>
               {displayName}
             </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="textSecondary" style={styles.quiet}>
               {isGuest ? 'Guest account on this phone' : 'Signed in with Google'}
+              {joined && ` · Joined ${joined}`}
             </ThemedText>
-            {joined && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Joined {joined}
-              </ThemedText>
-            )}
           </View>
         </View>
-
-        {isGuest && isEditingName && (
-          <NameEditor currentName={name ?? ''} onDone={() => setIsEditingName(false)} />
-        )}
 
         {isGuest && <GuestCard />}
 
@@ -153,55 +130,6 @@ export default function ProfileScreen() {
   );
 }
 
-function NameEditor({ currentName, onDone }: { currentName: string; onDone: () => void }) {
-  const [value, setValue] = useState(currentName);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'failed'>('idle');
-
-  const trimmed = value.trim();
-  const isEmpty = trimmed.length === 0;
-
-  async function save() {
-    setStatus('saving');
-    // The name lives on the account; a database trigger copies it into the profiles table.
-    const { error } = await supabase.auth.updateUser({ data: { full_name: trimmed } });
-    if (error) {
-      console.warn('Saving name failed:', error);
-      setStatus('failed');
-      return;
-    }
-    onDone();
-  }
-
-  return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <TextField isInvalid={status === 'failed'}>
-        <Label>Your name</Label>
-        <Input
-          value={value}
-          onChangeText={setValue}
-          maxLength={NAME_MAX_LENGTH}
-          placeholder="Enter your name"
-          autoFocus
-          autoCapitalize="words"
-          returnKeyType="done"
-          onSubmitEditing={() => !isEmpty && save()}
-        />
-        {status === 'failed' && (
-          <FieldError>Could not save your name. Check your connection and try again.</FieldError>
-        )}
-      </TextField>
-      <View style={styles.choices}>
-        <Button variant="secondary" onPress={onDone}>
-          Cancel
-        </Button>
-        <Button isDisabled={isEmpty || status === 'saving'} onPress={save}>
-          {status === 'saving' ? 'Saving…' : 'Save'}
-        </Button>
-      </View>
-    </ThemedView>
-  );
-}
-
 type Status = 'idle' | 'working' | 'failed' | 'conflict';
 
 function GuestCard() {
@@ -223,9 +151,11 @@ function GuestCard() {
   if (status === 'conflict') return <AccountConflict onStay={() => setStatus('idle')} />;
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">Keep your reports</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Card variant="default" style={styles.card}>
+      <ThemedText role="heading" style={styles.cardTitle}>
+        Keep your reports
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
         Guest reports can be lost if you uninstall the app or change phones. Sign in with Google to
         keep them.
       </ThemedText>
@@ -241,7 +171,7 @@ function GuestCard() {
         <BrandIcon xml={GOOGLE_LOGO} size={22} />
         <Button.Label>{status === 'working' ? 'Signing in…' : 'Sign in with Google'}</Button.Label>
       </Button>
-    </ThemedView>
+    </Card>
   );
 }
 
@@ -268,7 +198,7 @@ function AccountConflict({ onStay }: { onStay: () => void }) {
   }
 
   return (
-    <ThemedView type="backgroundElement" role="alert" style={styles.conflict}>
+    <Card variant="default" role="alert" style={styles.conflict}>
       <View style={styles.conflictHeading}>
         <ThemedView type="backgroundSelected" style={styles.conflictIcon}>
           <HugeiconsIcon icon={UserSwitchIcon} size={20} color={foreground} />
@@ -277,7 +207,7 @@ function AccountConflict({ onStay }: { onStay: () => void }) {
           <ThemedText style={styles.conflictName}>
             This Google account is already on PawPin
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
             It has its own account, so it cannot be joined to this guest.
           </ThemedText>
         </View>
@@ -286,7 +216,7 @@ function AccountConflict({ onStay }: { onStay: () => void }) {
       {/* What is lost by switching, set apart so it is read before the buttons. */}
       <View style={styles.conflictNote}>
         <HugeiconsIcon icon={Alert02Icon} size={18} color={muted} />
-        <ThemedText type="small" style={styles.conflictNoteText}>
+        <ThemedText type="small" style={[styles.conflictNoteText, styles.regular]}>
           Reports you made as a guest stay with the guest account. After you switch, you cannot get
           back to them.
         </ThemedText>
@@ -315,7 +245,7 @@ function AccountConflict({ onStay }: { onStay: () => void }) {
           <Button.Label>{switching === 'working' ? 'Switching…' : 'Switch'}</Button.Label>
         </Button>
       </View>
-    </ThemedView>
+    </Card>
   );
 }
 
@@ -332,24 +262,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.four,
   },
+  // Who this is, in the middle of the page: the photo, then the name, then one quiet line.
   identity: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
+    paddingVertical: Spacing.two,
   },
   identityText: {
-    flex: 1,
+    alignItems: 'center',
     gap: Spacing.half,
   },
   name: {
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: 600,
+    textAlign: 'center',
   },
+  quiet: {
+    fontWeight: 400,
+    textAlign: 'center',
+  },
+  regular: {
+    fontWeight: 400,
+  },
+  // Surface and corner come from HeroUI Card, the same as the menu's list under it.
   card: {
     gap: Spacing.two,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+  },
+  cardTitle: {
+    fontWeight: 600,
   },
   cardAction: {
     marginTop: Spacing.two,
@@ -358,7 +300,6 @@ const styles = StyleSheet.create({
   conflict: {
     gap: Spacing.three,
     padding: Spacing.three,
-    borderRadius: Spacing.three,
   },
   conflictHeading: {
     flexDirection: 'row',
@@ -393,11 +334,5 @@ const styles = StyleSheet.create({
   },
   conflictChoice: {
     flex: 1,
-  },
-  choices: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Spacing.two,
-    marginTop: Spacing.two,
   },
 });

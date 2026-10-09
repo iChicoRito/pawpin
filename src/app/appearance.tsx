@@ -75,7 +75,7 @@ export default function AppearanceScreen() {
                     <ThemedText style={isChosen ? styles.labelChosen : styles.label}>
                       {option.label}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
                       {option.hint}
                       {option.value === 'system' &&
                         ` Your phone is in ${phoneIsDark ? 'dark' : 'light'} mode now.`}
@@ -208,6 +208,9 @@ const styles = StyleSheet.create({
   },
   labelChosen: {
     fontWeight: 600,
+  },
+  regular: {
+    fontWeight: 400,
   },
   pressed: {
     opacity: 0.7,

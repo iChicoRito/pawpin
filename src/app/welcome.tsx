@@ -15,7 +15,13 @@ import { supabase } from '@/lib/supabase';
 type Method = 'google' | 'guest';
 
 async function signInAsGuest() {
-  const { error } = await supabase.auth.signInAnonymously();
+  // A guest is not asked for a name, so one is made up: "Guest" and four digits. It is a label for
+  // other people to read, not an id, so two guests may get the same one. A database trigger copies
+  // it into the profiles table.
+  const name = `Guest${1000 + Math.floor(Math.random() * 9000)}`;
+  const { error } = await supabase.auth.signInAnonymously({
+    options: { data: { full_name: name } },
+  });
   if (error) throw error;
 }
 

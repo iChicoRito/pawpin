@@ -226,6 +226,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   noticeLine: {
+    fontWeight: 400,
     textAlign: 'center',
   },
 });

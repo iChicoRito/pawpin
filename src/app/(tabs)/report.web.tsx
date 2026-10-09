@@ -1,3 +1,4 @@
+import { Typography } from 'heroui-native';
 import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -9,9 +10,9 @@ import { Spacing } from '@/constants/theme';
 export default function ReportScreen() {
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="subtitle" role="heading">
+      <Typography type="h3" role="heading">
         Report a stray
-      </ThemedText>
+      </Typography>
       <ThemedText themeColor="textSecondary" style={styles.text}>
         Reporting works in the phone app.
       </ThemedText>

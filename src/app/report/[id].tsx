@@ -1,6 +1,12 @@
 import ArrowUpRight01Icon from '@hugeicons/core-free-icons/ArrowUpRight01Icon';
+import Calendar03Icon from '@hugeicons/core-free-icons/Calendar03Icon';
 import CancelCircleIcon from '@hugeicons/core-free-icons/CancelCircleIcon';
 import CheckmarkCircle02Icon from '@hugeicons/core-free-icons/CheckmarkCircle02Icon';
+import FirstAidKitIcon from '@hugeicons/core-free-icons/FirstAidKitIcon';
+import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
+import PaintBoardIcon from '@hugeicons/core-free-icons/PaintBoardIcon';
+import PawPrintIcon from '@hugeicons/core-free-icons/PawPrintIcon';
+import RulerIcon from '@hugeicons/core-free-icons/RulerIcon';
 import SearchRemoveIcon from '@hugeicons/core-free-icons/SearchRemoveIcon';
 import Undo02Icon from '@hugeicons/core-free-icons/Undo02Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
@@ -13,6 +19,7 @@ import {
   Button,
   Chip,
   Dialog,
+  ListGroup,
   Menu,
   Separator,
   Skeleton,
@@ -20,7 +27,7 @@ import {
   useThemeColor,
   useToast,
 } from 'heroui-native';
-import { useEffect, useRef, useState, type PropsWithChildren } from 'react';
+import { Fragment, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -116,6 +123,8 @@ export default function ReportDetailScreen() {
   const isDark = useColorScheme() === 'dark';
   const theme = useTheme();
   const [photoIndex, setPhotoIndex] = useState(0);
+  // The photos that have been drawn. The one in view shows a skeleton until it is among them.
+  const [loadedPhotos, setLoadedPhotos] = useState<string[]>([]);
   const [tab, setTab] = useState<'report' | 'reporter'>('report');
   // Read from the reports the Map and the List already hold. Nothing is fetched here.
   const report = reports.find((candidate) => candidate.id === id);
@@ -219,10 +228,10 @@ export default function ReportDetailScreen() {
 
   // Only what the reporter gave. A report sent with the required answers alone shows no empty rows.
   const details = [
-    { label: 'Animal', value: animal },
-    { label: 'Condition', value: labelFor(CONDITIONS, report.condition) },
-    { label: 'Size', value: labelFor(SIZES, report.size) },
-    { label: 'Color', value: labelFor(COLORS, report.color) },
+    { icon: PawPrintIcon, label: 'Animal', value: animal },
+    { icon: FirstAidKitIcon, label: 'Condition', value: labelFor(CONDITIONS, report.condition) },
+    { icon: RulerIcon, label: 'Size', value: labelFor(SIZES, report.size) },
+    { icon: PaintBoardIcon, label: 'Color', value: labelFor(COLORS, report.color) },
   ].filter((detail) => detail.value);
 
   return (
@@ -235,6 +244,10 @@ export default function ReportDetailScreen() {
           {/* The photo leads: edge to edge, no frame, because recognising the animal comes first. */}
           {report.photos.length > 0 && (
             <View style={[styles.photos, { width: photoWidth, height: photoHeight }]}>
+              {/* Under the photos, so a photo covers it as soon as it is drawn. */}
+              {!loadedPhotos.includes(report.photos[photoIndex]) && (
+                <Skeleton className="absolute inset-0 rounded-none" />
+              )}
               <ScrollView
                 horizontal
                 pagingEnabled
@@ -251,6 +264,7 @@ export default function ReportDetailScreen() {
                     accessible
                     role="img"
                     aria-label={`Photo ${index + 1} of ${report.photos.length}`}
+                    onLoad={() => setLoadedPhotos((loaded) => [...loaded, uri])}
                     style={{ width: photoWidth, height: photoHeight }}
                   />
                 ))}
@@ -269,13 +283,21 @@ export default function ReportDetailScreen() {
           <View style={styles.body}>
             {/* What it is, how urgent, how far, how long ago: the decision, before any detail. */}
             <View style={styles.summary}>
-              <ThemedText role="heading" style={styles.animal}>
-                {animal}
-              </ThemedText>
-              <ThemedText themeColor="textSecondary">
-                {formatDistance(report.distanceM)} away · Reported{' '}
-                {formatAge(report.createdAt).toLowerCase()}
-              </ThemedText>
+              <View style={styles.summaryText}>
+                <ThemedText role="heading" style={styles.animal}>
+                  {animal}
+                </ThemedText>
+                <ThemedText themeColor="textSecondary" style={styles.regular}>
+                  {formatDistance(report.distanceM)} away · Reported{' '}
+                  {formatAge(report.createdAt).toLowerCase()}
+                </ThemedText>
+                {isMine && (
+                  // As wide as its words, not the column.
+                  <Chip variant="primary" size="sm" color="accent" className="mt-1 self-start">
+                    Your report
+                  </Chip>
+                )}
+              </View>
               <View style={styles.chips}>
                 <Chip variant="secondary" size="sm" color={URGENCY_CHIP[report.urgency]}>
                   {urgency}
@@ -283,11 +305,6 @@ export default function ReportDetailScreen() {
                 {isResponding && (
                   <Chip variant="secondary" size="sm" color="success">
                     {isMyClaim ? 'You are on the way' : 'Someone is on the way'}
-                  </Chip>
-                )}
-                {isMine && (
-                  <Chip variant="secondary" size="sm" color="accent">
-                    Your report
                   </Chip>
                 )}
               </View>
@@ -311,30 +328,23 @@ export default function ReportDetailScreen() {
 
             {tab === 'report' ? (
               <>
-                {/* The streets first, then the words that pick the spot out, then how far to trust it. */}
+                {/* The streets first, then the words that pick the spot out. */}
                 <Section title="Where">
                   <ReportPlaceMap
                     latitude={report.latitude}
                     longitude={report.longitude}
                     urgency={report.urgency}
                   />
-                  {(report.landmark || report.accuracyM != null) && (
+                  {report.landmark && (
                     <View style={styles.place}>
-                      {report.landmark && (
-                        <ThemedText style={styles.landmark}>{report.landmark}</ThemedText>
-                      )}
-                      {report.accuracyM != null && (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          Location accurate to about {Math.round(report.accuracyM)} m.
-                        </ThemedText>
-                      )}
+                      <ThemedText style={styles.landmark}>{report.landmark}</ThemedText>
                     </View>
                   )}
                 </Section>
 
                 <Section title="About the animal">
                   {/* How urgent, in the reporter's own choice of words, with what that choice means. */}
-                  <View style={styles.urgency}>
+                  <ThemedView type="backgroundElement" style={[styles.tile, styles.urgency]}>
                     <View
                       style={[
                         styles.urgencyDot,
@@ -343,24 +353,21 @@ export default function ReportDetailScreen() {
                     />
                     <View style={styles.urgencyText}>
                       <ThemedText style={styles.urgencyLabel}>{urgency}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
                         {URGENCIES.find((option) => option.value === report.urgency)?.hint}
                       </ThemedText>
                     </View>
-                  </View>
+                  </ThemedView>
 
-                  {/* Two to a line, so four facts take two short rows instead of a long table. */}
-                  <View style={styles.traits}>
+                  {/* One row per fact, in the same grouped list as the List tab and Settings. */}
+                  <ListGroup>
                     {details.map((detail, index) => (
-                      <Trait
-                        key={detail.label}
-                        label={detail.label}
-                        value={detail.value}
-                        isRight={index % 2 === 1}
-                        isFirstLine={index < 2}
-                      />
+                      <Fragment key={detail.label}>
+                        {index > 0 && <Separator className="mx-4" />}
+                        <Trait icon={detail.icon} label={detail.label} value={detail.value} />
+                      </Fragment>
                     ))}
-                  </View>
+                  </ListGroup>
                 </Section>
               </>
             ) : (
@@ -689,12 +696,19 @@ function Reporter({
       </View>
 
       <Section title="On PawPin">
-        <View style={styles.traits}>
-          <Trait label="Joined" value={joined} />
+        <ListGroup>
+          <Trait icon={Calendar03Icon} label="Joined" value={joined} />
           {reporter.reportCount != null && (
-            <Trait label="Reports sent" value={String(reporter.reportCount)} isRight />
+            <>
+              <Separator className="mx-4" />
+              <Trait
+                icon={Megaphone01Icon}
+                label="Reports sent"
+                value={String(reporter.reportCount)}
+              />
+            </>
           )}
-        </View>
+        </ListGroup>
       </Section>
     </View>
   );
@@ -705,7 +719,7 @@ function Section({ title, children }: PropsWithChildren<{ title: string }>) {
   const border = useThemeColor('border');
   return (
     <View style={[styles.section, { borderTopColor: border }]}>
-      <ThemedText type="smallBold" role="heading" themeColor="textSecondary">
+      <ThemedText type="small" role="heading" themeColor="textSecondary">
         {title}
       </ThemedText>
       {children}
@@ -713,34 +727,22 @@ function Section({ title, children }: PropsWithChildren<{ title: string }>) {
   );
 }
 
-/** One fact: a small label over its value. Half the width, so two sit on a line. */
-function Trait({
-  label,
-  value,
-  isRight = false,
-  isFirstLine = true,
-}: {
-  label: string;
-  value: string;
-  /** The second of a pair: set off from the first by a line down its left side. */
-  isRight?: boolean;
-  /** Lines after the first get a line across their top. */
-  isFirstLine?: boolean;
-}) {
-  const border = useThemeColor('border');
+/** One fact as a row of a grouped list: its icon and label at the start, its value at the end. */
+function Trait({ icon, label, value }: { icon: IconSvgElement; label: string; value: string }) {
+  const foreground = useThemeColor('foreground');
   return (
-    <View
-      style={[
-        styles.trait,
-        isRight && styles.traitRight,
-        !isFirstLine && styles.traitBelow,
-        { borderColor: border },
-      ]}>
-      <ThemedText themeColor="textSecondary" style={styles.traitLabel}>
+    // A row to read, not to press.
+    <ListGroup.Item pointerEvents="none">
+      <ListGroup.ItemPrefix>
+        <HugeiconsIcon icon={icon} size={20} color={foreground} />
+      </ListGroup.ItemPrefix>
+      <ThemedText themeColor="textSecondary" style={styles.regular}>
         {label}
       </ThemedText>
-      <ThemedText style={styles.traitValue}>{value}</ThemedText>
-    </View>
+      <ListGroup.ItemContent>
+        <ThemedText style={styles.traitValue}>{value}</ThemedText>
+      </ListGroup.ItemContent>
+    </ListGroup.Item>
   );
 }
 
@@ -836,8 +838,18 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
     paddingHorizontal: Spacing.four,
   },
+  // The words at the start, the chips at the end.
   summary: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+  },
+  summaryText: {
+    flex: 1,
     gap: Spacing.one,
+  },
+  regular: {
+    fontWeight: 400,
   },
   // The one large line on the page.
   animal: {
@@ -845,11 +857,11 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     fontWeight: 700,
   },
+  // One under the other against the end. Nudged down to sit level with the animal's name.
   chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'flex-end',
     gap: Spacing.one,
-    marginTop: Spacing.two,
+    marginTop: Spacing.one,
   },
   section: {
     gap: Spacing.two,
@@ -882,6 +894,11 @@ const styles = StyleSheet.create({
   landmark: {
     fontWeight: 600,
   },
+  // The filled box the urgency sits in.
+  tile: {
+    borderRadius: Spacing.three,
+    padding: Spacing.three,
+  },
   urgency: {
     flexDirection: 'row',
     gap: Spacing.three,
@@ -904,31 +921,9 @@ const styles = StyleSheet.create({
   urgencyLabel: {
     fontWeight: 600,
   },
-  // Two equal columns that wrap onto further lines. A long typed value wraps inside its column.
-  traits: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: Spacing.one,
-  },
-  trait: {
-    width: '50%',
-    gap: Spacing.half,
-    paddingVertical: Spacing.two + Spacing.half,
-    paddingRight: Spacing.three,
-  },
-  traitRight: {
-    paddingLeft: Spacing.three,
-    paddingRight: 0,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-  },
-  traitBelow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  traitLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
+  // At the end of the row. A long typed value wraps under itself, still against the end.
   traitValue: {
     fontWeight: 600,
+    textAlign: 'right',
   },
 });

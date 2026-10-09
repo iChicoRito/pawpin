@@ -87,7 +87,7 @@ export function ReportSent({ draft, onDone }: ReportSentProps) {
           </ThemedText>
         </View>
 
-        <View style={styles.section}>
+        <View>
           <ThemedText role="heading" style={styles.sectionTitle}>
             What you sent
           </ThemedText>
@@ -157,17 +157,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   centered: {
+    fontWeight: 400,
     textAlign: 'center',
   },
-  section: {
-    gap: Spacing.three,
-  },
+  // No gap of its own: the title sits right on what it names.
   sectionTitle: {
     fontSize: 18,
+    fontWeight: 500,
   },
   photos: {
     flexDirection: 'row',
     gap: Spacing.two,
+    marginBottom: Spacing.three,
   },
   // Three across at most. One or two photos keep that size and do not stretch.
   photo: {
