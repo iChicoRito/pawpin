@@ -40,6 +40,7 @@ import {
   ANIMAL_TYPES,
   COLORS,
   CONDITIONS,
+  discardUnsentReport,
   GUEST_LIMIT_ERROR,
   POOR_ACCURACY_M,
   saveUnsentReport,
@@ -74,6 +75,8 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
   const [isMapReady, setIsMapReady] = useState(false);
   const { session } = useSession();
   const [status, setStatus] = useState<SendStatus>('idle');
+  const sending = useRef(false);
+  const recoverySaved = useRef(false);
   const [border, accentForeground] = useThemeColor(['border', 'accent-foreground']);
   const isDark = useColorScheme() === 'dark';
 
@@ -97,7 +100,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
   const errors: Partial<typeof problems> = wasTried ? problems : {};
 
   async function send() {
-    if (!session) return;
+    if (!session || sending.current) return;
     if (problems.animal || problems.other || problems.urgency) {
       setWasTried(true);
       // These fields are in the first card.
@@ -108,9 +111,18 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
       setWasTried(true);
       return;
     }
+    sending.current = true;
     setStatus('sending');
+    let kept: ReportDraft | null = null;
     try {
-      await submitReport(draft, session.user.id);
+      // Persist before touching the network, including a send interrupted by closing the app.
+      kept = await saveUnsentReport(draft, session.user.id);
+      recoverySaved.current = true;
+      await submitReport(kept, session.user.id);
+      await discardUnsentReport().catch((error) => {
+        // A retry finds the existing report by ID, so failed cleanup cannot duplicate it.
+        console.warn('Removing the sent recovery draft failed:', error);
+      });
       toast.show({
         variant: 'success',
         label: 'Report sent',
@@ -129,8 +141,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
         return;
       }
       console.warn('Sending the report failed:', error);
-      try {
-        const kept = await saveUnsentReport(draft, session.user.id);
+      if (kept) {
         toast.show({
           variant: 'danger',
           icon: <ToastIcon status="danger" />,
@@ -138,9 +149,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
           description: 'It is saved on this phone.',
         });
         onUnsent(kept);
-      } catch (saveError) {
-        // Could not keep it either. The form stays filled in so Submit can be tried again.
-        console.warn('Keeping the report on the phone failed:', saveError);
+      } else {
         toast.show({
           variant: 'danger',
           icon: <ToastIcon status="danger" />,
@@ -149,6 +158,22 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
         });
         setStatus('failed');
       }
+    } finally {
+      sending.current = false;
+    }
+  }
+
+  async function retake() {
+    if (sending.current) return;
+    sending.current = true;
+    try {
+      if (recoverySaved.current) await discardUnsentReport();
+      onRetake();
+    } catch (error) {
+      console.warn('Discarding the draft failed:', error);
+      setStatus('failed');
+    } finally {
+      sending.current = false;
     }
   }
 
@@ -387,7 +412,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
               {isSending && <Spinner size="sm" color={accentForeground} />}
               <Button.Label>{isSending ? 'Sending…' : 'Submit'}</Button.Label>
             </Button>
-            <Button variant="secondary" isDisabled={isSending} onPress={onRetake}>
+            <Button variant="secondary" isDisabled={isSending} onPress={retake}>
               Retake
             </Button>
           </View>

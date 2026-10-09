@@ -103,6 +103,7 @@ function Viewfinder({ photos, isFull, onCapture, onRetry, next }: ViewfinderProp
   const [failure, setFailure] = useState<'location' | 'camera' | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isTaking, setIsTaking] = useState(false);
+  const taking = useRef(false);
 
   // The reading is kept warm while the camera is open. A photo then takes the reading already
   // in hand, instead of waiting several seconds for the phone to find itself after the tap.
@@ -137,21 +138,23 @@ function Viewfinder({ photos, isFull, onCapture, onRetry, next }: ViewfinderProp
   }, []);
 
   async function capture() {
+    if (taking.current || isFull || !isCameraReady) return;
+    taking.current = true;
+    setIsTaking(true);
     // Read the clock and the place first, at the tap, before the camera does its work.
     const now = Date.now();
-    const isUsable =
-      !!reading &&
-      now - reading.timestamp < LOCATION_STALE_MS &&
-      (await Location.hasServicesEnabledAsync());
-    if (!isUsable) {
-      // No photo is kept: a report with no place is of no use to a rescuer.
-      setFailure('location');
-      return;
-    }
-    const { latitude, longitude, accuracy } = reading.coords;
-
-    setIsTaking(true);
+    let step: 'location' | 'camera' = 'location';
     try {
+      if (
+        !reading ||
+        now - reading.timestamp >= LOCATION_STALE_MS ||
+        !(await Location.hasServicesEnabledAsync())
+      ) {
+        setFailure('location');
+        return;
+      }
+      const { latitude, longitude, accuracy } = reading.coords;
+      step = 'camera';
       const picture = await camera.current?.takePictureAsync();
       if (picture) {
         onCapture({
@@ -162,9 +165,11 @@ function Viewfinder({ photos, isFull, onCapture, onRetry, next }: ViewfinderProp
       }
     } catch (error) {
       console.warn('Taking the photo failed:', error);
-      setFailure('camera');
+      setFailure(step);
+    } finally {
+      taking.current = false;
+      setIsTaking(false);
     }
-    setIsTaking(false);
   }
 
   if (failure) {

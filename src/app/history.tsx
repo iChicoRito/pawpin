@@ -13,7 +13,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
-import { fetchMyReports, fetchMyRescues, type HistoryReport } from '@/lib/claims';
+import { fetchMyReports, fetchMyRescues, type HistoryPage } from '@/lib/claims';
 
 // The two lists this screen can show. Opened from the Profile tab's menu.
 const KINDS = {
@@ -52,7 +52,8 @@ export default function HistoryScreen() {
   const userId = session?.user.id;
   const list = kind === 'rescues' ? KINDS.rescues : KINDS.reports;
   // `undefined` while being read, `null` when it could not be.
-  const [reports, setReports] = useState<HistoryReport[] | null | undefined>(undefined);
+  const [history, setHistory] = useState<HistoryPage | null | undefined>(undefined);
+  const reports = history === null ? null : history?.reports;
   const [isPulling, setIsPulling] = useState(false);
   // Counts tries, so "Try again" and a pull down read once more.
   const [attempt, setAttempt] = useState(0);
@@ -63,11 +64,11 @@ export default function HistoryScreen() {
     list
       .fetch(userId)
       .then((found) => {
-        if (!isGone) setReports(found);
+        if (!isGone) setHistory(found);
       })
       .catch((error) => {
         console.warn(`Loading ${list.label} failed:`, error);
-        if (!isGone) setReports(null);
+        if (!isGone) setHistory(null);
       })
       .finally(() => {
         if (!isGone) setIsPulling(false);
@@ -107,7 +108,7 @@ export default function HistoryScreen() {
             text="Check your connection and try again."
             action="Try again"
             onAction={() => {
-              setReports(undefined);
+              setHistory(undefined);
               setAttempt(attempt + 1);
             }}
             isAlert
@@ -126,11 +127,16 @@ export default function HistoryScreen() {
             {/* The one large line on the page: how many. Then what the list is. */}
             <View style={styles.summary}>
               <ThemedText role="heading" style={styles.count}>
-                {list.count(reports.length)}
+                {list.count(history?.total ?? reports.length)}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {list.about}
               </ThemedText>
+              {history && history.total > reports.length && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Showing the latest {reports.length} of {history.total}.
+                </ThemedText>
+              )}
             </View>
             <HistoryList kind={list.kind} reports={reports} />
           </>

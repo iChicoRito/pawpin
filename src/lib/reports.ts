@@ -227,15 +227,15 @@ const unsentFolder = () => new Directory(Paths.document, 'unsent-report');
  * Returns the draft with its photos pointing at the kept copies.
  */
 export async function saveUnsentReport(draft: ReportDraft, userId: string) {
-  const folder = unsentFolder();
-  if (folder.exists) folder.delete();
-  folder.create();
+  // Do not delete the previous recovery copy until a replacement is fully saved.
+  const folder = new Directory(unsentFolder(), draft.id);
+  folder.create({ intermediates: true, idempotent: true });
 
   const photos: ReportPhoto[] = [];
   for (const [index, photo] of draft.photos.entries()) {
     // The camera's own files are temporary and the phone may delete them.
     const kept = new File(folder, `${index + 1}.jpg`);
-    await new File(photo.uri).copy(kept);
+    if (photo.uri !== kept.uri) await new File(photo.uri).copy(kept, { overwrite: true });
     photos.push({ ...photo, uri: kept.uri });
   }
 

@@ -54,6 +54,8 @@ export type HistoryReport = {
   photo: string | null;
 };
 
+export type HistoryPage = { reports: HistoryReport[]; total: number };
+
 // The columns of reports that a history line needs.
 const HISTORY_COLUMNS = 'id, animal_type, status, landmark, created_at, updated_at, photos';
 const HISTORY_LIMIT = 50;
@@ -70,34 +72,35 @@ function toHistory(row: Record<string, any>): HistoryReport {
   };
 }
 
-/** Every report this person sent, of any status, newest first. Throws if it cannot be read. */
-export async function fetchMyReports(userId: string) {
-  const { data, error } = await supabase
+/** The latest reports plus the full count, without loading an unbounded history. */
+export async function fetchMyReports(userId: string): Promise<HistoryPage> {
+  const { data, error, count } = await supabase
     .from('reports')
-    .select(HISTORY_COLUMNS)
+    .select(HISTORY_COLUMNS, { count: 'exact' })
     .eq('reporter_id', userId)
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(HISTORY_LIMIT);
   if (error) throw error;
-  return data.map(toHistory);
+  return { reports: data.map(toHistory), total: count ?? data.length };
 }
 
 /**
  * The animals this person rescued: their finished claims whose report ended as rescued, newest
  * rescue first. A visit that ended "not found" is not a rescue. Throws if it cannot be read.
  */
-export async function fetchMyRescues(userId: string) {
-  const { data, error } = await supabase
-    .from('claims')
-    .select(`created_at, reports!inner(${HISTORY_COLUMNS})`)
-    .eq('rescuer_id', userId)
-    .eq('status', 'completed')
-    .eq('reports.status', 'rescued')
-    .order('created_at', { ascending: false })
+export async function fetchMyRescues(userId: string): Promise<HistoryPage> {
+  const { data, error, count } = await supabase
+    .from('reports')
+    .select(`${HISTORY_COLUMNS}, claims!inner()`, { count: 'exact' })
+    .eq('claims.rescuer_id', userId)
+    .eq('claims.status', 'completed')
+    .eq('status', 'rescued')
+    .order('updated_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(HISTORY_LIMIT);
   if (error) throw error;
-  // Each claim carries its one report.
-  return (data as Record<string, any>[]).map((claim) => toHistory(claim.reports));
+  return { reports: data.map(toHistory), total: count ?? data.length };
 }
 
 /** Why the database refused, when it was one of its own reasons and not a lost connection. */

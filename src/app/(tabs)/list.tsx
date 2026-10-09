@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocationGate } from '@/components/location-gate';
 import { ListFilter, type ReportOwner } from '@/components/list-filter';
-import { ReportList, ReportListSkeleton } from '@/components/report-card';
+import { ReportRow, ReportListSkeleton } from '@/components/report-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -64,15 +64,16 @@ function NearbyList() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        // All the reports are one grouped list on one surface, so they are one item here. The
-        // FlatList stays for its header, its footer that can stretch, and the pull to refresh.
-        // ponytail: every row is drawn at once. Fine for the tens a 25 km search gives; go back
-        // to one FlatList item per report if a search ever returns hundreds.
-        data={shown.length > 0 ? [shown] : []}
-        keyExtractor={() => 'reports'}
-        renderItem={({ item }) => (
-          <ReportList
-            reports={item}
+        data={shown}
+        keyExtractor={(report) => report.id}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        renderItem={({ item, index }) => (
+          <ReportRow
+            report={item}
+            isFirst={index === 0}
+            isLast={index === shown.length - 1}
             onOpen={(report) =>
               router.push({ pathname: '/report/[id]', params: { id: report.id } })
             }
@@ -187,7 +188,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    gap: Spacing.two,
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.four,
     // At least as tall as the screen, so the footer has room to stretch into.

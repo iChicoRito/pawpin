@@ -32,94 +32,82 @@ export const URGENCY_CHIP: Record<ReportUrgency, 'danger' | 'warning' | 'default
   just_sighted: 'default',
 };
 
-type ReportListProps = {
-  /** Nearest first. */
-  reports: NearbyReport[];
+type ReportRowProps = {
+  report: NearbyReport;
   onOpen: (report: NearbyReport) => void;
+  isFirst: boolean;
+  isLast: boolean;
 };
 
 /**
- * The nearby reports as one HeroUI ListGroup, the same grouped list as on "Your reports": a row
- * per report on a shared surface, a thin line between rows. Each row says what it is, how urgent,
- * how far, how long ago, and whether someone is on the way. Tapping a row opens the report.
+ * One virtualized row. Only the outer rows are rounded, preserving the grouped-list surface.
  */
-export function ReportList({ reports, onOpen }: ReportListProps) {
+export function ReportRow({ report, onOpen, isFirst, isLast }: ReportRowProps) {
   const { session } = useSession();
 
+  // A typed kind has no entry in the list and is shown as typed.
+  const animal =
+    ANIMAL_TYPES.find((type) => type.value === report.animalType)?.label ??
+    (report.animalType || 'Animal');
+  const urgency = URGENCIES.find((option) => option.value === report.urgency)?.label ?? '';
+  const distance = formatDistance(report.distanceM);
+  const age = formatAge(report.createdAt);
+  const isResponding = report.status === 'responding';
+  const responding =
+    report.rescuerId === session?.user.id ? 'You are on the way' : 'Someone is on the way';
+  const spoken = [
+    animal,
+    urgency,
+    isResponding && responding.toLowerCase(),
+    `${distance} away`,
+    `reported ${age.toLowerCase()}`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
-    <ListGroup>
-      {reports.map((report, index) => {
-        // A typed kind has no entry in the list and is shown as typed.
-        const animal =
-          ANIMAL_TYPES.find((type) => type.value === report.animalType)?.label ??
-          (report.animalType || 'Animal');
-        const urgency = URGENCIES.find((option) => option.value === report.urgency)?.label ?? '';
-        const distance = formatDistance(report.distanceM);
-        const age = formatAge(report.createdAt);
-        const isResponding = report.status === 'responding';
-        // Said differently to the rescuer themselves, so they can pick their own rescue out.
-        const responding =
-          report.rescuerId === session?.user.id ? 'You are on the way' : 'Someone is on the way';
-        const spoken = [
-          animal,
-          urgency,
-          isResponding && responding.toLowerCase(),
-          `${distance} away`,
-          `reported ${age.toLowerCase()}`,
-        ]
-          .filter(Boolean)
-          .join(', ');
-
-        return (
-          <Fragment key={report.id}>
-            {index > 0 && <Separator className="mx-4" />}
-            <ListGroup.Item role="button" aria-label={spoken} onPress={() => onOpen(report)}>
-              <ListGroup.ItemPrefix>
-                {report.photos[0] ? (
-                  <Image source={{ uri: report.photos[0] }} style={styles.photo} />
-                ) : (
-                  <ThemedView type="backgroundSelected" style={styles.photo} />
-                )}
-              </ListGroup.ItemPrefix>
-
-              <ListGroup.ItemContent>
-                <ListGroup.ItemTitle numberOfLines={1}>{animal}</ListGroup.ItemTitle>
-                <View style={styles.chips}>
-                  <Chip variant="secondary" size="sm" color={URGENCY_CHIP[report.urgency]}>
-                    {urgency}
-                  </Chip>
-                </View>
-                {/* Under the chip when a rescuer is going. The light fades; the words say it. */}
-                {isResponding && (
-                  <View style={styles.responding}>
-                    <LiveDot />
-                    <ThemedText
-                      type="small"
-                      themeColor="textSecondary"
-                      numberOfLines={1}
-                      style={styles.regular}>
-                      {responding}
-                    </ThemedText>
-                  </View>
-                )}
-              </ListGroup.ItemContent>
-
-              {/* How far, and under it how long ago: the two things a rescuer scans down the
-                  right edge for. Digits of equal width, so they line up row to row. */}
-              <ListGroup.ItemSuffix>
-                <View style={styles.end}>
-                  <ThemedText type="small" style={styles.distance}>
-                    {distance}
-                  </ThemedText>
-                  <ThemedText themeColor="textSecondary" style={styles.age}>
-                    {age}
-                  </ThemedText>
-                </View>
-              </ListGroup.ItemSuffix>
-            </ListGroup.Item>
-          </Fragment>
-        );
-      })}
+    <ListGroup
+      className={`rounded-none shadow-none ${isFirst ? 'rounded-t-3xl' : ''} ${isLast ? 'rounded-b-3xl' : ''}`}>
+      {!isFirst && <Separator className="mx-4" />}
+      <ListGroup.Item role="button" aria-label={spoken} onPress={() => onOpen(report)}>
+        <ListGroup.ItemPrefix>
+          {report.photos[0] ? (
+            <Image source={{ uri: report.photos[0] }} style={styles.photo} />
+          ) : (
+            <ThemedView type="backgroundSelected" style={styles.photo} />
+          )}
+        </ListGroup.ItemPrefix>
+        <ListGroup.ItemContent>
+          <ListGroup.ItemTitle numberOfLines={1}>{animal}</ListGroup.ItemTitle>
+          <View style={styles.chips}>
+            <Chip variant="secondary" size="sm" color={URGENCY_CHIP[report.urgency]}>
+              {urgency}
+            </Chip>
+          </View>
+          {isResponding && (
+            <View style={styles.responding}>
+              <LiveDot />
+              <ThemedText
+                type="small"
+                themeColor="textSecondary"
+                numberOfLines={1}
+                style={styles.regular}>
+                {responding}
+              </ThemedText>
+            </View>
+          )}
+        </ListGroup.ItemContent>
+        <ListGroup.ItemSuffix>
+          <View style={styles.end}>
+            <ThemedText type="small" style={styles.distance}>
+              {distance}
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.age}>
+              {age}
+            </ThemedText>
+          </View>
+        </ListGroup.ItemSuffix>
+      </ListGroup.Item>
     </ListGroup>
   );
 }
