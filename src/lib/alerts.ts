@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import type { ReportPlace } from '@/lib/reports';
@@ -44,7 +45,10 @@ export async function registerForAlerts(userId: string) {
     if (!granted) return;
     // Reads the project id from app.json (`extra.eas.projectId`) and throws when there is none.
     const { data: token } = await Notifications.getExpoPushTokenAsync();
-    const { error } = await supabase.from('profiles').update({ push_token: token }).eq('id', userId);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ push_token: token })
+      .eq('id', userId);
     if (error) throw error;
   } catch (error) {
     console.warn('Saving the alert pass failed:', error);
@@ -95,7 +99,7 @@ export async function saveAlertRadius(userId: string, radiusM: number) {
  */
 export function useAlertPermission() {
   const [permission, setPermission] = useState<Notifications.NotificationPermissionsStatus | null>(
-    null
+    null,
   );
 
   useEffect(() => {
@@ -131,6 +135,31 @@ export function useAlertRegistration(userId: string | undefined) {
     });
     return () => subscription.remove();
   }, [userId]);
+}
+
+/** The report an alert is about, or `null` when it names none. */
+export function reportIdOf(response: Notifications.NotificationResponse | null | undefined) {
+  const id = response?.notification.request.content.data?.reportId;
+  return typeof id === 'string' ? id : null;
+}
+
+/**
+ * Opens the report of an alert that was tapped: the tap that opened the app, and taps while it
+ * runs. Used once, inside the signed-in part of the app, so a signed-out phone opens nothing.
+ */
+export function useAlertTaps() {
+  const router = useRouter();
+  const response = Notifications.useLastNotificationResponse();
+  // The alert already opened. The same tap is handed over again on every render.
+  const opened = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = reportIdOf(response);
+    const alert = response?.notification.request.identifier;
+    if (!id || !alert || opened.current === alert) return;
+    opened.current = alert;
+    router.push({ pathname: '/report/[id]', params: { id } });
+  }, [response, router]);
 }
 
 /** Whether "Not now" was tapped on the Map's alerts card. Kept on this phone, not on the account. */

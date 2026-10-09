@@ -42,6 +42,39 @@ export type NearbyReport = {
   rescuerId: string | null;
 };
 
+/**
+ * One report as its own page shows it. Unlike a nearby one it may be finished, and it has no
+ * distance when there is no place to measure from. Every `NearbyReport` is one of these.
+ */
+export type ReportDetail = Omit<NearbyReport, 'status' | 'distanceM'> & {
+  status: NearbyReport['status'] | 'rescued' | 'not_found' | 'closed';
+  distanceM: number | null;
+};
+
+// The database's names on the right of each pair are the columns of nearby_reports and
+// report_by_id, which hand back the same ones.
+function reportFrom(row: Record<string, any>) {
+  return {
+    id: row.id,
+    reporterId: row.reporter_id,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    accuracyM: row.location_accuracy_m,
+    landmark: row.landmark,
+    animalType: row.animal_type,
+    size: row.size,
+    color: row.color,
+    condition: row.condition,
+    urgency: row.urgency,
+    photos: row.photos ?? [],
+    status: row.status,
+    photoTakenAt: row.photo_taken_at,
+    createdAt: row.created_at,
+    distanceM: row.distance_m,
+    rescuerId: row.rescuer_id,
+  };
+}
+
 /** Active reports within `radiusM` of a place, nearest first. Throws if the search fails. */
 export async function fetchNearbyReports(place: ReportPlace, radiusM: number) {
   const { data, error } = await supabase.rpc('nearby_reports', {
@@ -50,27 +83,20 @@ export async function fetchNearbyReports(place: ReportPlace, radiusM: number) {
     radius_m: radiusM,
   });
   if (error) throw error;
+  return (data as Record<string, any>[]).map((row): NearbyReport => reportFrom(row));
+}
 
-  // The database's names on the left of each pair are the columns of nearby_reports.
-  return (data as Record<string, any>[]).map(
-    (row): NearbyReport => ({
-      id: row.id,
-      reporterId: row.reporter_id,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      accuracyM: row.location_accuracy_m,
-      landmark: row.landmark,
-      animalType: row.animal_type,
-      size: row.size,
-      color: row.color,
-      condition: row.condition,
-      urgency: row.urgency,
-      photos: row.photos ?? [],
-      status: row.status,
-      photoTakenAt: row.photo_taken_at,
-      createdAt: row.created_at,
-      distanceM: row.distance_m,
-      rescuerId: row.rescuer_id,
-    })
-  );
+/**
+ * One report by its id, whatever its status and however far away, or `null` when there is no such
+ * report. `place` is where to measure the distance from, if known. Throws if the read fails.
+ */
+export async function fetchReport(id: string, place: ReportPlace | null) {
+  const { data, error } = await supabase.rpc('report_by_id', {
+    p_id: id,
+    lat: place?.latitude ?? null,
+    lng: place?.longitude ?? null,
+  });
+  if (error) throw error;
+  const row = (data as Record<string, any>[])[0];
+  return row ? (reportFrom(row) as ReportDetail) : null;
 }

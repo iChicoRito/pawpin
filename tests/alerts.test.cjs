@@ -24,6 +24,7 @@ function alertsApi({ granted = true, token = async () => ({ data: 'ExponentPushT
       getPermissionsAsync: async () => ({ granted, canAskAgain: true }),
       getExpoPushTokenAsync: token,
     },
+    'expo-router': {},
     react: require('react'),
     'react-native': { Platform: { OS: 'android' }, AppState: {} },
     '@/lib/supabase': { supabase },
@@ -71,4 +72,21 @@ test('failing last-place save does not reject, so it cannot break the nearby sea
 test('failing alert-distance save rejects, so the screen can say so', async () => {
   const { api } = alertsApi({ saveError: new Error('Offline') });
   await assert.rejects(api.saveAlertRadius('user', 10000), /Offline/);
+});
+
+// A tap on an alert, as the phone hands it over.
+const tapped = (data) => ({ notification: { request: { identifier: 'n1', content: { data } } } });
+
+test('tapped alert names its report', () => {
+  const { api } = alertsApi();
+  assert.equal(api.reportIdOf(tapped({ reportId: 'abc' })), 'abc');
+});
+
+test('alert without a report id opens nothing', () => {
+  const { api } = alertsApi();
+  assert.equal(api.reportIdOf(tapped({})), null);
+  assert.equal(api.reportIdOf(tapped(null)), null);
+  assert.equal(api.reportIdOf(tapped({ reportId: 42 })), null);
+  assert.equal(api.reportIdOf(null), null);
+  assert.equal(api.reportIdOf(undefined), null);
 });

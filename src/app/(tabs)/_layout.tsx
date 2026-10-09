@@ -7,8 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppTabs, { BAR_HEIGHT } from '@/components/app-tabs';
 import { Spacing } from '@/constants/theme';
+import { useAlertTaps } from '@/lib/alerts';
 
 export default function TabLayout() {
+  // Here, not in the root layout: the tabs exist only for a signed-in user, with the screens ready
+  // to be opened.
+  useAlertTaps();
+
   return (
     <>
       <AppTabs />

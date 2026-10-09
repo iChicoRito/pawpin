@@ -23,6 +23,7 @@ import {
   Menu,
   Separator,
   Skeleton,
+  Spinner,
   Tabs,
   useThemeColor,
   useToast,
@@ -54,8 +55,17 @@ import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
 import { cancelClaim, claimReport, closeReport, refusalOf, resolveReport } from '@/lib/claims';
 import { formatAge, formatDistance, initialsOf } from '@/lib/format';
-import { URGENCY_COLORS } from '@/lib/nearby';
-import { ANIMAL_TYPES, COLORS, CONDITIONS, labelFor, SIZES, URGENCIES } from '@/lib/reports';
+import { fetchReport, URGENCY_COLORS, type NearbyReport, type ReportDetail } from '@/lib/nearby';
+import {
+  ANIMAL_TYPES,
+  COLORS,
+  CONDITIONS,
+  labelFor,
+  REPORT_STATUSES,
+  SIZES,
+  URGENCIES,
+  type ReportPlace,
+} from '@/lib/reports';
 import { supabase } from '@/lib/supabase';
 
 /** The photo is as wide as the screen and three quarters as tall, up to this height. */
@@ -106,7 +116,7 @@ export default function ReportDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const { reports, reload } = useNearbyReports();
+  const { reports, place, reload } = useNearbyReports();
   const { session, isGuest } = useSession();
   const { toast } = useToast();
   // Which rescue button is waiting for the database. The others are held until it answers.
@@ -126,22 +136,42 @@ export default function ReportDetailScreen() {
   // The photos that have been drawn. The one in view shows a skeleton until it is among them.
   const [loadedPhotos, setLoadedPhotos] = useState<string[]>([]);
   const [tab, setTab] = useState<'report' | 'reporter'>('report');
-  // Read from the reports the Map and the List already hold. Nothing is fetched here.
-  const report = reports.find((candidate) => candidate.id === id);
+  // Read from the reports the Map and the List already hold, when it is among them. A report
+  // opened from an alert may be outside the search distance, or finished: that one is fetched.
+  const nearby = reports.find((candidate) => candidate.id === id);
+  const fetched = useFetchedReport(id, !!nearby, reports, place);
+  // `undefined` while it is being read, `null` when there is no such report.
+  const report: ReportDetail | null | undefined = nearby ?? fetched.report;
 
   const reporter = useReporter(report?.reporterId);
-  const directions = useDirections(report);
+  const directions = useDirections(report ?? undefined);
   const muted = useThemeColor('muted');
 
   if (!report) {
+    // Still reading. Said in words too, for someone who cannot see the spinner.
+    if (report === undefined && !fetched.failed) {
+      return (
+        <ThemedView style={[styles.container, styles.missing]}>
+          <Spinner />
+          <ThemedText type="small" themeColor="textSecondary" aria-live="polite">
+            Loading report…
+          </ThemedText>
+        </ThemedView>
+      );
+    }
     return (
       <ThemedView style={[styles.container, styles.missing]}>
         <ThemedText role="alert" style={styles.centered}>
-          This report is no longer active or nearby.
+          {report === null
+            ? 'This report is no longer available.'
+            : 'Could not load this report. Check your connection and try again.'}
         </ThemedText>
-        <Button variant="secondary" onPress={() => router.back()}>
-          Back
-        </Button>
+        <View style={styles.missingChoices}>
+          <Button variant="secondary" onPress={() => router.back()}>
+            Back
+          </Button>
+          {report === undefined && <Button onPress={fetched.again}>Try again</Button>}
+        </View>
       </ThemedView>
     );
   }
@@ -150,6 +180,8 @@ export default function ReportDetailScreen() {
   const urgency = labelFor(URGENCIES, report.urgency);
   const isMine = report.reporterId === session?.user.id;
   const isResponding = report.status === 'responding';
+  // Rescued, not found, or closed: there is nothing left to do here but read.
+  const hasEnded = report.status !== 'reported' && !isResponding;
   const isMyClaim = isResponding && report.rescuerId === session?.user.id;
   const photoWidth = Math.min(window.width, MaxContentWidth);
   const photoHeight = Math.min(photoWidth * 0.75, PHOTO_MAX_HEIGHT);
@@ -175,6 +207,8 @@ export default function ReportDetailScreen() {
         router.back();
       }
       await reload();
+      // A report that is not among the nearby ones is not touched by that search.
+      fetched.again();
     } catch (error) {
       const refusal = refusalOf(error);
       if (!refusal) console.warn('Rescue action failed:', error);
@@ -202,7 +236,10 @@ export default function ReportDetailScreen() {
                 ? 'This page now shows the latest.'
                 : 'Check your connection and try again.',
       });
-      if (refusal) await reload();
+      if (refusal) {
+        await reload();
+        fetched.again();
+      }
     } finally {
       setBusy(null);
     }
@@ -288,8 +325,9 @@ export default function ReportDetailScreen() {
                   {animal}
                 </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.regular}>
-                  {formatDistance(report.distanceM)} away · Reported{' '}
-                  {formatAge(report.createdAt).toLowerCase()}
+                  {/* No distance when the phone's place is not known yet. */}
+                  {report.distanceM !== null && `${formatDistance(report.distanceM)} away · `}
+                  Reported {formatAge(report.createdAt).toLowerCase()}
                 </ThemedText>
                 {isMine && (
                   // As wide as its words, not the column.
@@ -305,6 +343,15 @@ export default function ReportDetailScreen() {
                 {isResponding && (
                   <Chip variant="secondary" size="sm" color="success">
                     {isMyClaim ? 'You are on the way' : 'Someone is on the way'}
+                  </Chip>
+                )}
+                {/* How it ended. Green only for a rescue. */}
+                {hasEnded && (
+                  <Chip
+                    variant="secondary"
+                    size="sm"
+                    color={report.status === 'rescued' ? 'success' : 'default'}>
+                    {labelFor(REPORT_STATUSES, report.status)}
                   </Chip>
                 )}
               </View>
@@ -376,142 +423,147 @@ export default function ReportDetailScreen() {
           </View>
 
           {/* The last thing on the page, after everything a rescuer reads before deciding. It
-              scrolls with the page and is not held over it. */}
+              scrolls with the page and is not held over it. A finished report has no buttons:
+              only the room they would have taken, so the page does not end against the edge. */}
           <View style={[styles.actions, { paddingBottom: insets.bottom + Spacing.four }]}>
             {/* One line, two buttons at most: how to get there, and the one thing to do next. */}
-            <View style={styles.actionsRow}>
-              {isMine ? (
-                // The reporter was there and needs no route. What only they can do is end the
-                // report, and say how it ended. It fills the bar: there is nothing else to do here.
-                <Menu presentation="bottom-sheet" style={!isMyClaim && styles.mainAction}>
-                  <Menu.Trigger asChild>
-                    <Button variant="danger-soft" isDisabled={busy !== null}>
-                      {busy === 'close' || busy === 'close_rescued' ? 'Closing…' : 'Close report'}
-                    </Button>
-                  </Menu.Trigger>
-                  <Menu.Portal>
-                    <Menu.Overlay />
-                    <Menu.Content presentation="bottom-sheet">
-                      <Menu.Label>Why are you closing it?</Menu.Label>
-                      <Menu.Item style={styles.sheetRow} onPress={() => askFirst('close_rescued')}>
-                        <ChoiceIcon icon={CheckmarkCircle02Icon} />
-                        <View style={styles.sheetText}>
-                          <Menu.ItemTitle>I helped it myself</Menu.ItemTitle>
-                          <Menu.ItemDescription>
-                            The animal is safe or with a vet. Ends as rescued.
-                          </Menu.ItemDescription>
-                        </View>
-                      </Menu.Item>
-                      <Menu.Item style={styles.sheetRow} onPress={() => askFirst('close')}>
-                        <ChoiceIcon icon={CancelCircleIcon} />
-                        <View style={styles.sheetText}>
-                          <Menu.ItemTitle>It no longer needs help</Menu.ItemTitle>
-                          <Menu.ItemDescription>
-                            It left, or someone took it in. Ends as closed.
-                          </Menu.ItemDescription>
-                        </View>
-                      </Menu.Item>
-                    </Menu.Content>
-                  </Menu.Portal>
-                </Menu>
-              ) : (
-                <>
-                  {/* Must be the same word as on Menu.Content below, or HeroUI throws. The Menu is a
-                view around its button, so it is the Menu that takes its share of the line. */}
-                  <Menu
-                    presentation="bottom-sheet"
-                    style={isResponding && !isMyClaim && styles.mainAction}>
+            {!hasEnded && (
+              <View style={styles.actionsRow}>
+                {isMine ? (
+                  // The reporter was there and needs no route. What only they can do is end the
+                  // report, and say how it ended. It fills the bar: there is nothing else to do here.
+                  <Menu presentation="bottom-sheet" style={!isMyClaim && styles.mainAction}>
                     <Menu.Trigger asChild>
-                      {/* Filled only when it is the sole button: someone else is already going. */}
-                      <Button variant={isResponding && !isMyClaim ? 'primary' : 'secondary'}>
-                        Directions
+                      <Button variant="danger-soft" isDisabled={busy !== null}>
+                        {busy === 'close' || busy === 'close_rescued' ? 'Closing…' : 'Close report'}
                       </Button>
                     </Menu.Trigger>
                     <Menu.Portal>
                       <Menu.Overlay />
                       <Menu.Content presentation="bottom-sheet">
-                        <Menu.Label>Open directions in</Menu.Label>
-                        {/* Each app by its own logo. The arrow says the tap leaves PawPin. */}
-                        <Menu.Item style={styles.sheetRow} onPress={directions.openGoogleMaps}>
-                          <BrandIcon xml={googleMapsLogo} />
-                          <Menu.ItemTitle>Google Maps</Menu.ItemTitle>
-                          <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
+                        <Menu.Label>Why are you closing it?</Menu.Label>
+                        <Menu.Item
+                          style={styles.sheetRow}
+                          onPress={() => askFirst('close_rescued')}>
+                          <ChoiceIcon icon={CheckmarkCircle02Icon} />
+                          <View style={styles.sheetText}>
+                            <Menu.ItemTitle>I helped it myself</Menu.ItemTitle>
+                            <Menu.ItemDescription>
+                              The animal is safe or with a vet. Ends as rescued.
+                            </Menu.ItemDescription>
+                          </View>
                         </Menu.Item>
-                        <Menu.Item style={styles.sheetRow} onPress={directions.openWaze}>
-                          <BrandIcon xml={wazeLogo} />
-                          <Menu.ItemTitle>Waze</Menu.ItemTitle>
-                          <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
+                        <Menu.Item style={styles.sheetRow} onPress={() => askFirst('close')}>
+                          <ChoiceIcon icon={CancelCircleIcon} />
+                          <View style={styles.sheetText}>
+                            <Menu.ItemTitle>It no longer needs help</Menu.ItemTitle>
+                            <Menu.ItemDescription>
+                              It left, or someone took it in. Ends as closed.
+                            </Menu.ItemDescription>
+                          </View>
                         </Menu.Item>
                       </Menu.Content>
                     </Menu.Portal>
                   </Menu>
-                </>
-              )}
+                ) : (
+                  <>
+                    {/* Must be the same word as on Menu.Content below, or HeroUI throws. The Menu is a
+                view around its button, so it is the Menu that takes its share of the line. */}
+                    <Menu
+                      presentation="bottom-sheet"
+                      style={isResponding && !isMyClaim && styles.mainAction}>
+                      <Menu.Trigger asChild>
+                        {/* Filled only when it is the sole button: someone else is already going. */}
+                        <Button variant={isResponding && !isMyClaim ? 'primary' : 'secondary'}>
+                          Directions
+                        </Button>
+                      </Menu.Trigger>
+                      <Menu.Portal>
+                        <Menu.Overlay />
+                        <Menu.Content presentation="bottom-sheet">
+                          <Menu.Label>Open directions in</Menu.Label>
+                          {/* Each app by its own logo. The arrow says the tap leaves PawPin. */}
+                          <Menu.Item style={styles.sheetRow} onPress={directions.openGoogleMaps}>
+                            <BrandIcon xml={googleMapsLogo} />
+                            <Menu.ItemTitle>Google Maps</Menu.ItemTitle>
+                            <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
+                          </Menu.Item>
+                          <Menu.Item style={styles.sheetRow} onPress={directions.openWaze}>
+                            <BrandIcon xml={wazeLogo} />
+                            <Menu.ItemTitle>Waze</Menu.ItemTitle>
+                            <HugeiconsIcon icon={ArrowUpRight01Icon} size={18} color={muted} />
+                          </Menu.Item>
+                        </Menu.Content>
+                      </Menu.Portal>
+                    </Menu>
+                  </>
+                )}
 
-              {!isResponding && !isMine && (
-                <Button
-                  style={styles.mainAction}
-                  isDisabled={busy !== null}
-                  // A guest sees the same button and learns why it needs a Google account.
-                  onPress={() =>
-                    isGuest ? setIsSignInOpen(true) : act('claim', () => claimReport(report.id))
-                  }>
-                  {busy === 'claim' ? 'Sending…' : 'I’m on my way'}
-                </Button>
-              )}
+                {!isResponding && !isMine && (
+                  <Button
+                    style={styles.mainAction}
+                    isDisabled={busy !== null}
+                    // A guest sees the same button and learns why it needs a Google account.
+                    onPress={() =>
+                      isGuest ? setIsSignInOpen(true) : act('claim', () => claimReport(report.id))
+                    }>
+                    {busy === 'claim' ? 'Sending…' : 'I’m on my way'}
+                  </Button>
+                )}
 
-              {/* The outcomes cannot be undone, so they take a second, deliberate tap. */}
-              {isMyClaim && (
-                <Menu presentation="bottom-sheet" style={styles.mainAction}>
-                  <Menu.Trigger asChild>
-                    <Button isDisabled={busy !== null}>
-                      {busy === 'rescued' || busy === 'not_found' || busy === 'cancel'
-                        ? 'Sending…'
-                        : 'Update status'}
-                    </Button>
-                  </Menu.Trigger>
-                  <Menu.Portal>
-                    <Menu.Overlay />
-                    <Menu.Content presentation="bottom-sheet">
-                      <Menu.Label>What happened?</Menu.Label>
-                      {/* The two ways it can end. Green marks the good one; shape tells them apart too. */}
-                      <Menu.Item style={styles.sheetRow} onPress={() => askFirst('rescued')}>
-                        <ChoiceIcon icon={CheckmarkCircle02Icon} />
-                        <View style={styles.sheetText}>
-                          <Menu.ItemTitle>Rescued</Menu.ItemTitle>
-                          <Menu.ItemDescription>
-                            The animal is safe or with a vet.
-                          </Menu.ItemDescription>
-                        </View>
-                      </Menu.Item>
-                      <Menu.Item
-                        variant="danger"
-                        style={styles.sheetRow}
-                        onPress={() => askFirst('not_found')}>
-                        <ChoiceIcon icon={SearchRemoveIcon} />
-                        <View style={styles.sheetText}>
-                          <Menu.ItemTitle>Not found</Menu.ItemTitle>
-                          <Menu.ItemDescription>
-                            You got there and the animal was gone.
-                          </Menu.ItemDescription>
-                        </View>
-                      </Menu.Item>
-                      {/* Not an outcome: it hands the report back. Set apart so it is not picked as one. */}
-                      <Separator className="mx-3 my-1" />
-                      <Menu.Item style={styles.sheetRow} onPress={() => askFirst('cancel')}>
-                        <ChoiceIcon icon={Undo02Icon} />
-                        <View style={styles.sheetText}>
-                          <Menu.ItemTitle>I can’t make it</Menu.ItemTitle>
-                          <Menu.ItemDescription>
-                            Another rescuer can take this report.
-                          </Menu.ItemDescription>
-                        </View>
-                      </Menu.Item>
-                    </Menu.Content>
-                  </Menu.Portal>
-                </Menu>
-              )}
-            </View>
+                {/* The outcomes cannot be undone, so they take a second, deliberate tap. */}
+                {isMyClaim && (
+                  <Menu presentation="bottom-sheet" style={styles.mainAction}>
+                    <Menu.Trigger asChild>
+                      <Button isDisabled={busy !== null}>
+                        {busy === 'rescued' || busy === 'not_found' || busy === 'cancel'
+                          ? 'Sending…'
+                          : 'Update status'}
+                      </Button>
+                    </Menu.Trigger>
+                    <Menu.Portal>
+                      <Menu.Overlay />
+                      <Menu.Content presentation="bottom-sheet">
+                        <Menu.Label>What happened?</Menu.Label>
+                        {/* The two ways it can end. Green marks the good one; shape tells them apart too. */}
+                        <Menu.Item style={styles.sheetRow} onPress={() => askFirst('rescued')}>
+                          <ChoiceIcon icon={CheckmarkCircle02Icon} />
+                          <View style={styles.sheetText}>
+                            <Menu.ItemTitle>Rescued</Menu.ItemTitle>
+                            <Menu.ItemDescription>
+                              The animal is safe or with a vet.
+                            </Menu.ItemDescription>
+                          </View>
+                        </Menu.Item>
+                        <Menu.Item
+                          variant="danger"
+                          style={styles.sheetRow}
+                          onPress={() => askFirst('not_found')}>
+                          <ChoiceIcon icon={SearchRemoveIcon} />
+                          <View style={styles.sheetText}>
+                            <Menu.ItemTitle>Not found</Menu.ItemTitle>
+                            <Menu.ItemDescription>
+                              You got there and the animal was gone.
+                            </Menu.ItemDescription>
+                          </View>
+                        </Menu.Item>
+                        {/* Not an outcome: it hands the report back. Set apart so it is not picked as one. */}
+                        <Separator className="mx-3 my-1" />
+                        <Menu.Item style={styles.sheetRow} onPress={() => askFirst('cancel')}>
+                          <ChoiceIcon icon={Undo02Icon} />
+                          <View style={styles.sheetText}>
+                            <Menu.ItemTitle>I can’t make it</Menu.ItemTitle>
+                            <Menu.ItemDescription>
+                              Another rescuer can take this report.
+                            </Menu.ItemDescription>
+                          </View>
+                        </Menu.Item>
+                      </Menu.Content>
+                    </Menu.Portal>
+                  </Menu>
+                )}
+              </View>
+            )}
           </View>
         </ScrollView>
       </BlurTargetView>
@@ -567,6 +619,54 @@ export default function ReportDetailScreen() {
       <GoogleSignInDialog isOpen={isSignInOpen} onClose={() => setIsSignInOpen(false)} />
     </ThemedView>
   );
+}
+
+/**
+ * A report read by its id, for when it is not among the nearby ones: `skip` says it is. Read again
+ * each time the nearby reports change, which is what a live change does, so a claim or an outcome
+ * shows here too, with no loading state.
+ */
+function useFetchedReport(
+  id: string,
+  skip: boolean,
+  reports: NearbyReport[],
+  place: ReportPlace | null,
+) {
+  // Kept with its id, so one report's answer is never shown as another's.
+  const [answer, setAnswer] = useState<{ id: string; report: ReportDetail | null }>();
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (skip || !id) return;
+    let isGone = false;
+    fetchReport(id, place)
+      .then((report) => {
+        if (isGone) return;
+        setAnswer({ id, report });
+        setFailed(false);
+      })
+      .catch((error) => {
+        console.warn('Loading the report failed:', error);
+        if (!isGone) setFailed(true);
+      });
+    return () => {
+      isGone = true;
+    };
+    // Not on a new place alone: the distance shown is from where the viewer last searched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, skip, reports, attempt]);
+
+  const report = answer?.id === id ? answer.report : undefined;
+  return {
+    report,
+    // Only while there is nothing to show. A quiet read that fails leaves the page as it was.
+    failed: failed && report === undefined,
+    again: () => {
+      setFailed(false);
+      setAttempt((count) => count + 1);
+    },
+  };
 }
 
 /** An icon on a faint tile. Same size as a `BrandIcon`, so both drawers line up. */
@@ -758,6 +858,10 @@ const styles = StyleSheet.create({
   },
   centered: {
     textAlign: 'center',
+  },
+  missingChoices: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   // Set off from the last section by space alone, like the sections from each other.
   actions: {

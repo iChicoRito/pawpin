@@ -117,3 +117,42 @@ test('native auth refresh stops in background and cleans up listener', () => {
   cleanups.forEach((cleanup) => cleanup?.());
   assert.equal(removed, true);
 });
+
+function reportApi(rows) {
+  const calls = [];
+  const supabase = new PostgrestClient('https://example.test/rest/v1', {
+    fetch: async (url, init) => {
+      calls.push({ path: new URL(url).pathname, body: JSON.parse(init.body) });
+      return new Response(JSON.stringify(rows), { headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  return { api: loadSource('src/lib/nearby.ts', { '@/lib/supabase': { supabase } }), calls };
+}
+
+const reportRow = {
+  id: 'r1', reporter_id: 'u1', latitude: 14.6, longitude: 121, location_accuracy_m: 12,
+  landmark: 'public market', animal_type: 'dog', size: 'small', color: 'cream', condition: 'injured',
+  urgency: 'critical', photos: null, status: 'rescued', photo_taken_at: null,
+  created_at: '2026-10-09T00:00:00Z', distance_m: null, rescuer_id: null,
+};
+
+test('one report is read by its id, from the viewer’s place when there is one', async () => {
+  const { api, calls } = reportApi([reportRow]);
+  await api.fetchReport('r1', { latitude: 14.61, longitude: 121, accuracyM: 5 });
+  assert.deepEqual(calls, [{ path: '/rest/v1/rpc/report_by_id', body: { p_id: 'r1', lat: 14.61, lng: 121 } }]);
+});
+
+test('finished report with no place to measure from keeps its status and has no distance', async () => {
+  const { api, calls } = reportApi([reportRow]);
+  const report = await api.fetchReport('r1', null);
+  assert.deepEqual(calls[0].body, { p_id: 'r1', lat: null, lng: null });
+  assert.equal(report.status, 'rescued');
+  assert.equal(report.distanceM, null);
+  assert.equal(report.reporterId, 'u1');
+  assert.deepEqual(report.photos, []);
+});
+
+test('id that is no report gives null, not an error', async () => {
+  const { api } = reportApi([]);
+  assert.equal(await api.fetchReport('missing', null), null);
+});

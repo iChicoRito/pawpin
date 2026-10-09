@@ -24,6 +24,8 @@ export function useAlertPermission() {
 
 export function useAlertRegistration(_userId: string | undefined) {}
 
+export function useAlertTaps() {}
+
 export async function isAlertCardDismissed() {
   return true;
 }
