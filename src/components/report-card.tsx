@@ -73,44 +73,46 @@ export function ReportRow({ report, onOpen }: ReportRowProps) {
 
   return (
     <Card style={[styles.card, { borderColor: border }]}>
+      {/* The whole card is one button, the bar at its foot included. */}
       <Pressable
         role="button"
         aria-label={spoken}
         onPress={() => onOpen(report)}
-        style={styles.row}>
-        {report.photos[0] ? (
-          <Image source={{ uri: report.photos[0] }} style={styles.photo} />
-        ) : (
-          <ThemedView type="backgroundSelected" style={styles.photo} />
-        )}
-        <View style={styles.details}>
-          <ThemedText numberOfLines={1} style={{ color: foreground }}>
-            {animal}
-          </ThemedText>
-          <ThemedText type="small" style={[styles.urgency, { color: urgencyColor }]}>
-            {urgency}
-          </ThemedText>
-          {isResponding && (
-            <View style={styles.responding}>
-              <LiveDot />
-              <ThemedText
-                type="small"
-                themeColor="textSecondary"
-                numberOfLines={1}
-                style={styles.regular}>
-                {responding}
-              </ThemedText>
-            </View>
+        style={styles.press}>
+        <View style={styles.row}>
+          {report.photos[0] ? (
+            <Image source={{ uri: report.photos[0] }} style={styles.photo} />
+          ) : (
+            <ThemedView type="backgroundSelected" style={styles.photo} />
           )}
+          <View style={styles.details}>
+            <ThemedText numberOfLines={1} style={{ color: foreground }}>
+              {animal}
+            </ThemedText>
+            <ThemedText type="small" style={[styles.urgency, { color: urgencyColor }]}>
+              {urgency}
+            </ThemedText>
+          </View>
+          <View style={styles.end}>
+            <ThemedText type="small" style={styles.distance}>
+              {distance}
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.age}>
+              {age}
+            </ThemedText>
+          </View>
         </View>
-        <View style={styles.end}>
-          <ThemedText type="small" style={styles.distance}>
-            {distance}
-          </ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.age}>
-            {age}
-          </ThemedText>
-        </View>
+        {/* Shaped like a button that cannot be pressed, where "I'm on my way" would be: the
+            report is taken. Seen down a list without reading each card. It is not a button of
+            its own: a tap on it opens the report like the rest of the card. */}
+        {isResponding && (
+          <ThemedView testID="responding-footer" type="backgroundElement" style={styles.footer}>
+            <LiveDot />
+            <ThemedText type="small" numberOfLines={1} style={styles.footerLabel}>
+              {responding}
+            </ThemedText>
+          </ThemedView>
+        )}
       </Pressable>
     </Card>
   );
@@ -150,7 +152,7 @@ export function ReportListSkeleton({ rows }: { rows: number }) {
     <View style={styles.skeletonList}>
       {Array.from({ length: rows }, (_, row) => (
         <Card key={row} style={[styles.card, { borderColor: border }]}>
-          <View pointerEvents="none" style={styles.row}>
+          <View pointerEvents="none" style={[styles.press, styles.row]}>
             <Skeleton className="h-14 w-14 rounded-xl" />
             <View style={styles.details}>
               <View style={styles.skeletonText}>
@@ -174,10 +176,14 @@ const styles = StyleSheet.create({
     padding: 0,
     borderWidth: StyleSheet.hairlineWidth,
   },
+  // The card's padding, kept by the button so every part of the card is pressed.
+  press: {
+    padding: Spacing.two + Spacing.one,
+    gap: Spacing.two + Spacing.one,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.two + Spacing.one,
     gap: Spacing.two + Spacing.one,
   },
   details: {
@@ -196,14 +202,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: Spacing.one,
   },
-  responding: {
+  // As wide as the card and as tall as a small button, its words in the middle.
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one + Spacing.half,
-    marginTop: Spacing.one,
+    justifyContent: 'center',
+    gap: Spacing.two,
+    minHeight: 36,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.two + Spacing.one,
   },
-  regular: {
-    fontWeight: 400,
+  // Full strength, not greyed: it is news, not a control that is switched off.
+  footerLabel: {
+    fontWeight: 600,
   },
   live: {
     width: 8,

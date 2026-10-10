@@ -74,3 +74,30 @@ test('list urgency is plain text with the same secondary-chip label colors', () 
     assert.equal(opened, report);
   }
 });
+
+test('report someone is going to says so in a footer bar across the card, and no other card has one', () => {
+  const load = (userId) => loadSource('src/components/report-card.tsx', {
+    'expo-image': { Image: 'Image' }, react: React, 'react-native': native,
+    'react-native-reanimated': {},
+    uniwind: { useResolveClassNames: () => ({ color: '#000' }) },
+    'heroui-native': { ...ui, Card: 'Card', Skeleton: 'Skeleton' },
+    '@/components/themed-text': { ThemedText: 'Text' },
+    '@/components/themed-view': { ThemedView: 'View' }, '@/constants/theme': theme,
+    '@/hooks/use-session': { useSession: () => ({ session: userId ? { user: { id: userId } } : null }) },
+    '@/lib/format': { formatDistance: () => '100 m', formatAge: () => '1 minute ago' },
+    '@/lib/reports': { ANIMAL_TYPES: [], URGENCIES: [] },
+  }).ReportRow;
+  const footerOf = (row) => findElement(row, (node) => node.props?.testID === 'responding-footer');
+  const textIn = (tree) => findElement(tree, (node) => node.type === 'Text')?.props.children;
+  const going = { animalType: 'dog', urgency: 'critical', status: 'responding', rescuerId: 'r1', photos: [] };
+
+  const someone = load('u1')({ report: going, onOpen() {} });
+  assert.equal(textIn(footerOf(someone)), 'Someone is on the way');
+  // The bar is inside the one button the card is, so a tap on it opens the report too.
+  const button = findElement(someone, (node) => node.props?.role === 'button');
+  assert.ok(footerOf(button), 'the footer must be part of what is pressed');
+  assert.match(button.props['aria-label'], /someone is on the way/);
+
+  assert.equal(textIn(footerOf(load('r1')({ report: going, onOpen() {} }))), 'You are on the way');
+  assert.equal(footerOf(load('u1')({ report: { ...going, status: 'reported' }, onOpen() {} })), undefined);
+});
