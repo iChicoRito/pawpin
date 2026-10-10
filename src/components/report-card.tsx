@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
-import { Chip, ListGroup, Separator, Skeleton, useThemeColor } from 'heroui-native';
-import { Fragment, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Card, Skeleton, useThemeColor } from 'heroui-native';
+import { useEffect } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -11,6 +11,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { useResolveClassNames } from 'uniwind';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -32,18 +33,23 @@ export const URGENCY_CHIP: Record<ReportUrgency, 'danger' | 'warning' | 'default
   just_sighted: 'default',
 };
 
+const URGENCY_TEXT_COLOR: Record<ReportUrgency, string> = {
+  critical: 'text-danger-soft-foreground',
+  needs_help_soon: 'text-warning-soft-foreground',
+  just_sighted: 'text-default-soft-foreground',
+};
+
 type ReportRowProps = {
   report: NearbyReport;
   onOpen: (report: NearbyReport) => void;
-  isFirst: boolean;
-  isLast: boolean;
 };
 
-/**
- * One virtualized row. Only the outer rows are rounded, preserving the grouped-list surface.
- */
-export function ReportRow({ report, onOpen, isFirst, isLast }: ReportRowProps) {
+/** One report card, rendered independently by the virtualized list. */
+export function ReportRow({ report, onOpen }: ReportRowProps) {
   const { session } = useSession();
+  const border = useThemeColor('border');
+  const foreground = useThemeColor('foreground');
+  const urgencyColor = useResolveClassNames(URGENCY_TEXT_COLOR[report.urgency]).color;
 
   // A typed kind has no entry in the list and is shown as typed.
   const animal =
@@ -66,24 +72,24 @@ export function ReportRow({ report, onOpen, isFirst, isLast }: ReportRowProps) {
     .join(', ');
 
   return (
-    <ListGroup
-      className={`rounded-none shadow-none ${isFirst ? 'rounded-t-3xl' : ''} ${isLast ? 'rounded-b-3xl' : ''}`}>
-      {!isFirst && <Separator className="mx-4" />}
-      <ListGroup.Item role="button" aria-label={spoken} onPress={() => onOpen(report)}>
-        <ListGroup.ItemPrefix>
-          {report.photos[0] ? (
-            <Image source={{ uri: report.photos[0] }} style={styles.photo} />
-          ) : (
-            <ThemedView type="backgroundSelected" style={styles.photo} />
-          )}
-        </ListGroup.ItemPrefix>
-        <ListGroup.ItemContent>
-          <ListGroup.ItemTitle numberOfLines={1}>{animal}</ListGroup.ItemTitle>
-          <View style={styles.chips}>
-            <Chip variant="secondary" size="sm" color={URGENCY_CHIP[report.urgency]}>
-              {urgency}
-            </Chip>
-          </View>
+    <Card style={[styles.card, { borderColor: border }]}>
+      <Pressable
+        role="button"
+        aria-label={spoken}
+        onPress={() => onOpen(report)}
+        style={styles.row}>
+        {report.photos[0] ? (
+          <Image source={{ uri: report.photos[0] }} style={styles.photo} />
+        ) : (
+          <ThemedView type="backgroundSelected" style={styles.photo} />
+        )}
+        <View style={styles.details}>
+          <ThemedText numberOfLines={1} style={{ color: foreground }}>
+            {animal}
+          </ThemedText>
+          <ThemedText type="small" style={[styles.urgency, { color: urgencyColor }]}>
+            {urgency}
+          </ThemedText>
           {isResponding && (
             <View style={styles.responding}>
               <LiveDot />
@@ -96,19 +102,17 @@ export function ReportRow({ report, onOpen, isFirst, isLast }: ReportRowProps) {
               </ThemedText>
             </View>
           )}
-        </ListGroup.ItemContent>
-        <ListGroup.ItemSuffix>
-          <View style={styles.end}>
-            <ThemedText type="small" style={styles.distance}>
-              {distance}
-            </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.age}>
-              {age}
-            </ThemedText>
-          </View>
-        </ListGroup.ItemSuffix>
-      </ListGroup.Item>
-    </ListGroup>
+        </View>
+        <View style={styles.end}>
+          <ThemedText type="small" style={styles.distance}>
+            {distance}
+          </ThemedText>
+          <ThemedText themeColor="textSecondary" style={styles.age}>
+            {age}
+          </ThemedText>
+        </View>
+      </Pressable>
+    </Card>
   );
 }
 
@@ -139,45 +143,57 @@ function LiveDot() {
   return <Animated.View style={[styles.live, { backgroundColor: success }, pulse]} />;
 }
 
-/** The shape of the list while the first search runs: photo, name and chip, distance and age. */
+/** The shape of the list while the first search runs: photo, name and urgency, distance and age. */
 export function ReportListSkeleton({ rows }: { rows: number }) {
+  const border = useThemeColor('border');
   return (
-    <ListGroup>
+    <View style={styles.skeletonList}>
       {Array.from({ length: rows }, (_, row) => (
-        <Fragment key={row}>
-          {row > 0 && <Separator className="mx-4" />}
-          <ListGroup.Item pointerEvents="none">
-            <ListGroup.ItemPrefix>
-              <Skeleton className="h-14 w-14 rounded-xl" />
-            </ListGroup.ItemPrefix>
-            <ListGroup.ItemContent>
+        <Card key={row} style={[styles.card, { borderColor: border }]}>
+          <View pointerEvents="none" style={styles.row}>
+            <Skeleton className="h-14 w-14 rounded-xl" />
+            <View style={styles.details}>
               <View style={styles.skeletonText}>
                 <Skeleton className="h-4 w-24 rounded-md" />
-                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-3 w-20 rounded-md" />
               </View>
-            </ListGroup.ItemContent>
-            <ListGroup.ItemSuffix>
-              <View style={[styles.end, styles.skeletonText]}>
-                <Skeleton className="h-4 w-12 rounded-md" />
-                <Skeleton className="h-3 w-10 rounded-md" />
-              </View>
-            </ListGroup.ItemSuffix>
-          </ListGroup.Item>
-        </Fragment>
+            </View>
+            <View style={[styles.end, styles.skeletonText]}>
+              <Skeleton className="h-4 w-12 rounded-md" />
+              <Skeleton className="h-3 w-10 rounded-md" />
+            </View>
+          </View>
+        </Card>
       ))}
-    </ListGroup>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  card: {
+    padding: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.two + Spacing.one,
+    gap: Spacing.two + Spacing.one,
+  },
+  details: {
+    flex: 1,
+  },
+  skeletonList: {
+    gap: Spacing.two,
+  },
   photo: {
     width: PHOTO_SIZE,
     height: PHOTO_SIZE,
     borderRadius: Spacing.two + Spacing.one,
   },
-  chips: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  urgency: {
+    fontSize: 12,
+    lineHeight: 16,
     marginTop: Spacing.one,
   },
   responding: {

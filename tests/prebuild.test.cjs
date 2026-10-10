@@ -67,6 +67,7 @@ test('nearby list gives FlatList individual reports and stable report IDs', () =
   assert.equal(list.props.data.length, 300);
   assert.equal(list.props.keyExtractor(list.props.data[42]), '42');
   assert.equal(list.props.renderItem({ item: reports[42], index: 42 }).props.report.id, '42');
+  assert.equal(list.props.ItemSeparatorComponent().props.style.height, 8, 'cards need small gaps without divider lines');
 });
 
 function formScreen(reportApi) {
@@ -75,6 +76,7 @@ function formScreen(reportApi) {
     '@maplibre/maplibre-react-native': { Camera: 'Camera', Map: 'Map' },
     'heroui-native': ui, react: state.react, 'react-native': native,
     'react-native-safe-area-context': insets,
+    '@/components/drawer-backdrop': { DrawerSelectOverlay: 'DrawerSelectOverlay' },
     '@/components/themed-text': themed, '@/components/themed-view': themed,
     '@/components/report-photo': { PhotoThumb: 'PhotoThumb' },
     '@/constants/theme': theme, '@/components/report-sent': { ReportSent: 'ReportSent', ToastIcon: 'ToastIcon' },

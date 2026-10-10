@@ -69,11 +69,10 @@ function NearbyList() {
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         windowSize={7}
-        renderItem={({ item, index }) => (
+        ItemSeparatorComponent={() => <View style={styles.cardGap} />}
+        renderItem={({ item }) => (
           <ReportRow
             report={item}
-            isFirst={index === 0}
-            isLast={index === shown.length - 1}
             onOpen={(report) =>
               router.push({ pathname: '/report/[id]', params: { id: report.id } })
             }
@@ -177,6 +176,9 @@ function NearbyList() {
 }
 
 const styles = StyleSheet.create({
+  cardGap: {
+    height: Spacing.two,
+  },
   regular: {
     fontWeight: 400,
   },

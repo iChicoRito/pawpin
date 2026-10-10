@@ -48,6 +48,14 @@ import { type ReactNode, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  AppDialogOverlay,
+  DrawerBottomSheetOverlay,
+  DrawerMenuOverlay,
+  DrawerPopoverOverlay,
+  DrawerSelectOverlay,
+} from '@/components/drawer-backdrop';
+
 const SIZES = ['sm', 'md', 'lg'] as const;
 const COLORS = ['accent', 'default', 'success', 'warning', 'danger'] as const;
 const STATUSES = ['default', 'accent', 'success', 'warning', 'danger'] as const;
@@ -64,7 +72,6 @@ const BUTTON_VARIANTS = [
 ] as const;
 const CHIP_VARIANTS = ['primary', 'secondary', 'tertiary', 'soft'] as const;
 const SURFACE_VARIANTS = ['default', 'secondary', 'tertiary', 'transparent'] as const;
-const OVERLAY_VARIANTS = ['default', 'blur'] as const;
 
 /** One component: name heading plus its variant groups. */
 function Demo({ name, children }: { name: string; children: ReactNode }) {
@@ -425,7 +432,7 @@ function Controls() {
                 <Select.TriggerIndicator />
               </Select.Trigger>
               <Select.Portal>
-                <Select.Overlay />
+                {presentation === 'popover' ? <Select.Overlay /> : <DrawerSelectOverlay />}
                 <Select.Content presentation={presentation}>
                   <Select.Item value="1" label="Option 1" />
                   <Select.Item value="2" label="Option 2" />
@@ -773,42 +780,38 @@ function Overlays() {
   return (
     <>
       <Demo name="Dialog">
-        <Group label="Overlay variant">
-          {OVERLAY_VARIANTS.map((variant) => (
-            <Dialog key={variant}>
-              <Dialog.Trigger asChild>
-                <Button variant="secondary">{variant}</Button>
-              </Dialog.Trigger>
-              <Dialog.Portal>
-                <Dialog.Overlay variant={variant} />
-                <Dialog.Content>
-                  <Dialog.Close />
-                  <Dialog.Title>Dialog</Dialog.Title>
-                  <Dialog.Description>Overlay variant: {variant}</Dialog.Description>
-                </Dialog.Content>
-              </Dialog.Portal>
-            </Dialog>
-          ))}
+        <Group label="Report-style backdrop">
+          <Dialog>
+            <Dialog.Trigger asChild>
+              <Button variant="secondary">Blur and dim</Button>
+            </Dialog.Trigger>
+            <Dialog.Portal>
+              <AppDialogOverlay />
+              <Dialog.Content>
+                <Dialog.Close />
+                <Dialog.Title>Dialog</Dialog.Title>
+                <Dialog.Description>Shared blur and dim backdrop.</Dialog.Description>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog>
         </Group>
       </Demo>
 
       <Demo name="BottomSheet">
-        <Group label="Overlay variant">
-          {OVERLAY_VARIANTS.map((variant) => (
-            <BottomSheet key={variant}>
-              <BottomSheet.Trigger asChild>
-                <Button variant="secondary">{variant}</Button>
-              </BottomSheet.Trigger>
-              <BottomSheet.Portal>
-                <BottomSheet.Overlay variant={variant} />
-                <BottomSheet.Content>
-                  <BottomSheet.Close />
-                  <BottomSheet.Title>Bottom sheet</BottomSheet.Title>
-                  <BottomSheet.Description>Overlay variant: {variant}</BottomSheet.Description>
-                </BottomSheet.Content>
-              </BottomSheet.Portal>
-            </BottomSheet>
-          ))}
+        <Group label="Report-style backdrop">
+          <BottomSheet>
+            <BottomSheet.Trigger asChild>
+              <Button variant="secondary">Blur and dim</Button>
+            </BottomSheet.Trigger>
+            <BottomSheet.Portal>
+              <DrawerBottomSheetOverlay />
+              <BottomSheet.Content>
+                <BottomSheet.Close />
+                <BottomSheet.Title>Bottom sheet</BottomSheet.Title>
+                <BottomSheet.Description>Shared blur and dim backdrop.</BottomSheet.Description>
+              </BottomSheet.Content>
+            </BottomSheet.Portal>
+          </BottomSheet>
         </Group>
       </Demo>
 
@@ -836,7 +839,7 @@ function Overlays() {
               <Button variant="secondary">bottom-sheet</Button>
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Overlay />
+              <DrawerPopoverOverlay />
               <Popover.Content presentation="bottom-sheet">
                 <Popover.Close />
                 <Popover.Title>Popover</Popover.Title>
@@ -855,7 +858,7 @@ function Overlays() {
                 <Button variant="secondary">{presentation}</Button>
               </Menu.Trigger>
               <Menu.Portal>
-                <Menu.Overlay />
+                {presentation === 'bottom-sheet' ? <DrawerMenuOverlay /> : <Menu.Overlay />}
                 <Menu.Content presentation={presentation}>
                   <Menu.Label>Actions</Menu.Label>
                   <Menu.Item>

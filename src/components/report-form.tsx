@@ -30,6 +30,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { DrawerSelectOverlay } from '@/components/drawer-backdrop';
 import { PhotoThumb } from '@/components/report-photo';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -351,7 +352,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
                   <Select.TriggerIndicator />
                 </Select.Trigger>
                 <Select.Portal>
-                  <Select.Overlay />
+                  <DrawerSelectOverlay />
                   <Select.Content presentation="bottom-sheet">
                     {COLORS.map((color) => (
                       <Select.Item key={color.value} value={color.value} label={color.label} />

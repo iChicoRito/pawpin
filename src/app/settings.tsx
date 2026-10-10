@@ -10,6 +10,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { AppDialogOverlay } from '@/components/drawer-backdrop';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
@@ -157,7 +158,7 @@ export default function SettingsScreen() {
         isOpen={status === 'confirming'}
         onOpenChange={(open) => !open && status === 'confirming' && setStatus('idle')}>
         <Dialog.Portal>
-          <Dialog.Overlay />
+          <AppDialogOverlay />
           <Dialog.Content>
             <Dialog.Title>Sign out as a guest?</Dialog.Title>
             <Dialog.Description>

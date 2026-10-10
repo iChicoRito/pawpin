@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
+import { AppDialogOverlay } from '@/components/drawer-backdrop';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
@@ -51,7 +52,7 @@ export function GoogleSignInDialog({
   return (
     <Dialog isOpen={isOpen} onOpenChange={(open) => !open && close()}>
       <Dialog.Portal>
-        <Dialog.Overlay />
+        <AppDialogOverlay />
         <Dialog.Content>
           <Dialog.Title>
             {isConflict ? 'This Google account is already on PawPin' : title}

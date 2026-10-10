@@ -1,8 +1,10 @@
 import { Image } from 'expo-image';
-import { BottomSheet, Button, Chip } from 'heroui-native';
+import { BottomSheet, Button, Chip, useBottomSheet } from 'heroui-native';
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { URGENCY_CHIP } from '@/components/report-card';
+import { DrawerBottomSheetOverlay } from '@/components/drawer-backdrop';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useDirections } from '@/hooks/use-directions';
@@ -39,9 +41,10 @@ export function ReportPreview({ report, isOpen, onClose, onView }: ReportPreview
     : [];
 
   return (
-    <BottomSheet isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <BottomSheet isDefaultOpen={false} onOpenChange={(open) => !open && onClose()}>
+      <PreviewOpenState isOpen={isOpen} />
       <BottomSheet.Portal>
-        <BottomSheet.Overlay />
+        <DrawerBottomSheetOverlay />
         <BottomSheet.Content>
           {report && (
             <View style={styles.content}>
@@ -114,6 +117,15 @@ export function ReportPreview({ report, isOpen, onClose, onView }: ReportPreview
       </BottomSheet.Portal>
     </BottomSheet>
   );
+}
+
+// Send map taps into HeroUI's own state; a retained swipe callback can then close it reliably.
+function PreviewOpenState({ isOpen }: { isOpen: boolean }) {
+  const { onOpenChange } = useBottomSheet();
+  useEffect(() => {
+    onOpenChange(isOpen);
+  }, [isOpen, onOpenChange]);
+  return null;
 }
 
 const styles = StyleSheet.create({

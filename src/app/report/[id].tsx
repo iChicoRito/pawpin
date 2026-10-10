@@ -12,7 +12,7 @@ import SearchRemoveIcon from '@hugeicons/core-free-icons/SearchRemoveIcon';
 import Undo02Icon from '@hugeicons/core-free-icons/Undo02Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
-import { BlurTargetView, BlurView } from 'expo-blur';
+import { BlurTargetView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -36,7 +36,6 @@ import {
   useRef,
   useState,
   type PropsWithChildren,
-  type RefObject,
 } from 'react';
 import {
   Pressable,
@@ -52,6 +51,7 @@ import { svg as googleMapsLogo } from 'thesvg/google-maps';
 import { svg as wazeLogo } from 'thesvg/waze';
 
 import { BrandIcon } from '@/components/brand-icon';
+import { AppDialogOverlay, PageVeil } from '@/components/drawer-backdrop';
 import { GoogleSignInDialog } from '@/components/google-sign-in-dialog';
 import { URGENCY_CHIP } from '@/components/report-card';
 import { ReportPlaceMap } from '@/components/report-place-map';
@@ -722,8 +722,7 @@ export default function ReportDetailScreen() {
       {/* A status change is seen by everyone, and an outcome cannot be undone: ask once. */}
       <Dialog isOpen={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <Dialog.Portal>
-          <PageVeil page={page} isDark={isDark} />
-          <Dialog.Overlay />
+          <AppDialogOverlay page={page} isDark={isDark} />
           <Dialog.Content>
             <Dialog.Title>{CONFIRMATIONS[pending].title}</Dialog.Title>
             <Dialog.Description>
@@ -761,32 +760,6 @@ export default function ReportDetailScreen() {
         })}
       />
     </ThemedView>
-  );
-}
-
-/**
- * The page going out of focus behind a dialog or a drawer: blurred, then darkened. HeroUI's own
- * blur overlay is iPhone only, so the blur is laid here, under the overlay's dimming. Android 12
- * and up; older phones get the dimming alone. The blur copies what the views inside `page` draw.
- */
-function PageVeil({ page, isDark }: { page: RefObject<View | null>; isDark: boolean }) {
-  return (
-    <>
-      <BlurView
-        blurTarget={page}
-        blurMethod="dimezisBlurViewSdk31Plus"
-        intensity={14}
-        tint="dark"
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-      />
-      {/* A light blur alone leaves the page as bright as what lies over it, so it is darkened too.
-          A dark page needs more black than a light one before it looks any darker. */}
-      <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, isDark ? styles.dimOnDark : styles.dimOnLight]}
-      />
-    </>
   );
 }
 
@@ -1057,12 +1030,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
     marginTop: Spacing.four,
-  },
-  dimOnLight: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  dimOnDark: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   choiceIcon: {
     width: 40,

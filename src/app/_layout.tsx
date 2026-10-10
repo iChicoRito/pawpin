@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '@/global.css';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { DrawerBackdropProvider, DrawerBlurTarget } from '@/components/drawer-backdrop';
 import { NearbyReportsProvider } from '@/hooks/use-nearby-reports';
 import { SessionProvider, useSession } from '@/hooks/use-session';
 import { useAlertRegistration } from '@/lib/alerts';
@@ -20,15 +21,19 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <HeroUINativeProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <SessionProvider>
-            <NearbyReportsProvider>
-              <RootNavigator />
-            </NearbyReportsProvider>
-          </SessionProvider>
-        </ThemeProvider>
-      </HeroUINativeProvider>
+      <DrawerBackdropProvider>
+        <HeroUINativeProvider>
+          <DrawerBlurTarget>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <SessionProvider>
+                <NearbyReportsProvider>
+                  <RootNavigator />
+                </NearbyReportsProvider>
+              </SessionProvider>
+            </ThemeProvider>
+          </DrawerBlurTarget>
+        </HeroUINativeProvider>
+      </DrawerBackdropProvider>
     </GestureHandlerRootView>
   );
 }

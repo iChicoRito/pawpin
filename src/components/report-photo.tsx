@@ -3,6 +3,7 @@ import { Dialog } from 'heroui-native';
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
+import { AppDialogOverlay } from '@/components/drawer-backdrop';
 
 type PhotoThumbProps = {
   uri: string;
@@ -27,7 +28,7 @@ export function PhotoThumb({ uri, label, style }: PhotoThumbProps) {
         </Pressable>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay />
+        <AppDialogOverlay />
         <Dialog.Content>
           <Dialog.Close />
           <Dialog.Title>{label}</Dialog.Title>
