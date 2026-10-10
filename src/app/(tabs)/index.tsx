@@ -16,6 +16,7 @@ import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native'
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AdminDashboard } from '@/components/admin-dashboard';
 import { LocationGate } from '@/components/location-gate';
 import { RadiusChoice } from '@/components/radius-choice';
 import { ReportPreview } from '@/components/report-preview';
@@ -23,6 +24,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
+import { useSession } from '@/hooks/use-session';
 import { dismissAlertCard, isAlertCardDismissed, useAlertPermission } from '@/lib/alerts';
 import { mapInkFor, mapStyleFor, PAW_IMAGES, zoomForRadius } from '@/lib/map';
 import { RADIUS_CHOICES, URGENCY_COLORS } from '@/lib/nearby';
@@ -60,6 +62,9 @@ const NETWORK_FAILED = 'Could not load reports. Check your connection and try ag
 
 // Phones only. Browsers get index.web.tsx.
 export default function MapScreen() {
+  // An admin does not look for strays: the first tab is their Dashboard instead.
+  const { isAdmin } = useSession();
+  if (isAdmin) return <AdminDashboard />;
   return (
     <LocationGate title="Map">
       <NearbyMap />

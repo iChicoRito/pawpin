@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AdminReports } from '@/components/admin-reports';
 import { LocationGate } from '@/components/location-gate';
 import { ListFilter, type ReportOwner } from '@/components/list-filter';
 import { ReportRow, ReportListSkeleton } from '@/components/report-card';
@@ -27,6 +28,9 @@ const SKELETON_CARDS = 5;
 
 // Phones only. Browsers get list.web.tsx.
 export default function ListScreen() {
+  // An admin's list is every report from everywhere, not the ones near them.
+  const { isAdmin } = useSession();
+  if (isAdmin) return <AdminReports />;
   return (
     <LocationGate title={TITLE}>
       <NearbyList />

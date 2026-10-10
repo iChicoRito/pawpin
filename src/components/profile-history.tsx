@@ -15,7 +15,7 @@ const PHOTO_SIZE = 40;
 const SKELETON_ROWS = 6;
 
 /** "October 2026", or "This month" for the month we are in. */
-function monthOf(iso: string) {
+export function monthOf(iso: string) {
   const date = new Date(iso);
   const now = new Date();
   if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {

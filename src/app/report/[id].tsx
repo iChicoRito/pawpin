@@ -63,6 +63,7 @@ import { useDirections } from '@/hooks/use-directions';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
+import { adminCloseReport, fetchReportFlags } from '@/lib/admin';
 import { cancelClaim, claimReport, closeReport, refusalOf, resolveReport } from '@/lib/claims';
 import {
   FLAG_REASONS,
@@ -97,6 +98,14 @@ const CONFIRMATIONS = {
       'The report ends as rescued, in your name, and leaves the map for everyone. It cannot be undone.',
     confirm: 'Mark as rescued',
     isDanger: false,
+  },
+  // The admin's own: someone else's report, taken down because it is fake, wrong, or abusive.
+  admin_close: {
+    title: 'Close this report?',
+    description:
+      'It ends as closed and leaves the map for everyone. The reporter is not alerted. It cannot be opened again.',
+    confirm: 'Close report',
+    isDanger: true,
   },
   close: {
     title: 'Close this report?',
@@ -141,11 +150,19 @@ export default function ReportDetailScreen() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const { reports, place, reload } = useNearbyReports();
-  const { session, isGuest } = useSession();
+  const { session, isGuest, isAdmin } = useSession();
   const { toast } = useToast();
   // Which rescue button is waiting for the database. The others are held until it answers.
   const [busy, setBusy] = useState<
-    'claim' | 'cancel' | 'rescued' | 'not_found' | 'close' | 'close_rescued' | 'flag' | null
+    | 'claim'
+    | 'cancel'
+    | 'rescued'
+    | 'not_found'
+    | 'close'
+    | 'close_rescued'
+    | 'admin_close'
+    | 'flag'
+    | null
   >(null);
   // What the viewer said is wrong with the report, kept until they confirm the flag.
   const [flagReason, setFlagReason] = useState<FlagReason>(FLAG_REASONS[0]);
@@ -181,6 +198,8 @@ export default function ReportDetailScreen() {
   const report: ReportDetail | null | undefined = nearby ?? fetched.report;
 
   const reporter = useReporter(report?.reporterId);
+  // Only an admin can read flags, so only an admin asks.
+  const flags = useReportFlags(isAdmin ? report?.id : undefined);
   const directions = useDirections(report ?? undefined);
   const [muted, foreground] = useThemeColor(['muted', 'foreground']);
 
@@ -233,7 +252,7 @@ export default function ReportDetailScreen() {
           variant: 'success',
           icon: <ToastIcon status="success" />,
           label:
-            kind === 'close'
+            kind === 'close' || kind === 'admin_close'
               ? 'Report closed'
               : kind === 'not_found'
                 ? 'Marked as not found'
@@ -337,11 +356,13 @@ export default function ReportDetailScreen() {
       return;
     }
     act(pending, () =>
-      pending === 'close' || pending === 'close_rescued'
-        ? closeReport(reportId, pending === 'close_rescued')
-        : pending === 'cancel'
-          ? cancelClaim(reportId)
-          : resolveReport(reportId, pending),
+      pending === 'admin_close'
+        ? adminCloseReport(reportId)
+        : pending === 'close' || pending === 'close_rescued'
+          ? closeReport(reportId, pending === 'close_rescued')
+          : pending === 'cancel'
+            ? cancelClaim(reportId)
+            : resolveReport(reportId, pending),
     );
   }
 
@@ -357,11 +378,12 @@ export default function ReportDetailScreen() {
     <ThemedView style={styles.container}>
       {/* The flag sits in the header, away from the two buttons at the foot of the page: it is for
           the rare report that is fake or abusive, not a step in a rescue. Not on the viewer's own
-          report, which they can close instead, and not on a finished one. */}
+          report, which they can close instead, not on a finished one, and not for an admin, who
+          is the one flags are sent to. */}
       <Stack.Screen
         options={{
           headerRight:
-            !hasEnded && !isMine
+            !hasEnded && !isMine && !isAdmin
               ? () => (
                   <Pressable
                     role="button"
@@ -462,6 +484,27 @@ export default function ReportDetailScreen() {
                 )}
               </View>
             </View>
+
+            {/* For an admin only, and first under the summary: what users said is wrong with this
+                report is what they came to read. Who said it is not read. Above the tabs, so it
+                shows on both. */}
+            {flags.length > 0 && (
+              <Section
+                title={flags.length === 1 ? 'Flagged once' : `Flagged ${flags.length} times`}>
+                <ListGroup>
+                  {flags.map((flag, index) => (
+                    <Fragment key={index}>
+                      {index > 0 && <Separator className="mx-4" />}
+                      <Trait
+                        icon={Flag02Icon}
+                        label={flag.reason}
+                        value={formatAge(flag.createdAt)}
+                      />
+                    </Fragment>
+                  ))}
+                </ListGroup>
+              </Section>
+            )}
 
             {/* The photo and the summary stay put; only what is under them changes. */}
             <Tabs
@@ -582,10 +625,13 @@ export default function ReportDetailScreen() {
                     <Menu
                       presentation="bottom-sheet"
                       onOpenChange={(open) => setOpenSheet(open ? 'directions' : null)}
-                      style={isResponding && !isMyClaim && styles.mainAction}>
+                      style={isResponding && !isMyClaim && !isAdmin && styles.mainAction}>
                       <Menu.Trigger asChild>
                         {/* Filled only when it is the sole button: someone else is already going. */}
-                        <Button variant={isResponding && !isMyClaim ? 'primary' : 'secondary'}>
+                        <Button
+                          variant={
+                            isResponding && !isMyClaim && !isAdmin ? 'primary' : 'secondary'
+                          }>
                           Directions
                         </Button>
                       </Menu.Trigger>
@@ -611,7 +657,19 @@ export default function ReportDetailScreen() {
                   </>
                 )}
 
-                {!isResponding && !isMine && (
+                {/* An admin does not go to animals. What only they can do is take a bad report
+                    down, whoever sent it and whoever is on the way. */}
+                {isAdmin && !isMine && !isMyClaim && (
+                  <Button
+                    variant="danger-soft"
+                    style={styles.mainAction}
+                    isDisabled={busy !== null}
+                    onPress={() => askFirst('admin_close')}>
+                    {busy === 'admin_close' ? 'Closing…' : 'Close report'}
+                  </Button>
+                )}
+
+                {!isResponding && !isMine && !isAdmin && (
                   <Button
                     style={styles.mainAction}
                     isDisabled={busy !== null}
@@ -728,7 +786,7 @@ export default function ReportDetailScreen() {
             <Dialog.Description>
               {CONFIRMATIONS[pending].description}
               {/* The reporter should know a rescuer is already going before they take it down. */}
-              {(pending === 'close' || pending === 'close_rescued') &&
+              {(pending === 'close' || pending === 'close_rescued' || pending === 'admin_close') &&
                 isResponding &&
                 !isMyClaim &&
                 ' Someone is on the way to this animal; closing tells them to stop.'}
@@ -809,6 +867,32 @@ function useFetchedReport(
       setAttempt((count) => count + 1);
     },
   };
+}
+
+/**
+ * The flags on a report, newest first, for an admin. Empty for everyone else, while it is being
+ * read, and when it cannot be: the section is then simply not there.
+ */
+function useReportFlags(reportId: string | undefined) {
+  const [answer, setAnswer] = useState<{
+    id: string;
+    flags: { reason: string; createdAt: string }[];
+  }>();
+
+  useEffect(() => {
+    if (!reportId) return;
+    let isGone = false;
+    fetchReportFlags(reportId)
+      .then((flags) => {
+        if (!isGone) setAnswer({ id: reportId, flags });
+      })
+      .catch((error) => console.warn('Reading the flags failed:', error));
+    return () => {
+      isGone = true;
+    };
+  }, [reportId]);
+
+  return answer && answer.id === reportId ? answer.flags : [];
 }
 
 /** An icon on a faint tile. Same size as a `BrandIcon`, so both drawers line up. */

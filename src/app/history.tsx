@@ -1,13 +1,12 @@
 import AlertCircleIcon from '@hugeicons/core-free-icons/AlertCircleIcon';
 import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Button, useThemeColor } from 'heroui-native';
 import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Notice } from '@/components/notice';
 import { HistoryList, HistoryListSkeleton } from '@/components/profile-history';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -146,39 +145,6 @@ export default function HistoryScreen() {
   );
 }
 
-type NoticeProps = {
-  icon: IconSvgElement;
-  title: string;
-  text: string;
-  action: string;
-  onAction: () => void;
-  /** Read out at once, for a failure. */
-  isAlert?: boolean;
-};
-
-/** An icon, a line, a sentence, and one thing to do. For the empty list and for a failed read. */
-function Notice({ icon, title, text, action, onAction, isAlert = false }: NoticeProps) {
-  const muted = useThemeColor('muted');
-  return (
-    <View role={isAlert ? 'alert' : undefined} style={styles.notice}>
-      <ThemedView type="backgroundElement" style={styles.noticeIcon}>
-        <HugeiconsIcon icon={icon} size={28} color={muted} />
-      </ThemedView>
-      <View style={styles.noticeText}>
-        <ThemedText role="heading" style={styles.noticeTitle}>
-          {title}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.noticeLine}>
-          {text}
-        </ThemedText>
-      </View>
-      <Button variant="secondary" onPress={onAction}>
-        {action}
-      </Button>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -205,34 +171,5 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     fontWeight: 700,
     fontVariant: ['tabular-nums'],
-  },
-  // Same shape as the List tab's empty state.
-  notice: {
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.five,
-  },
-  noticeIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Narrow enough that the sentence breaks into even lines instead of running edge to edge.
-  noticeText: {
-    alignItems: 'center',
-    gap: Spacing.one,
-    maxWidth: 300,
-  },
-  noticeTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: 600,
-    textAlign: 'center',
-  },
-  noticeLine: {
-    fontWeight: 400,
-    textAlign: 'center',
   },
 });

@@ -33,7 +33,7 @@ import { initialsOf } from '@/lib/format';
 import { RADIUS_CHOICES } from '@/lib/nearby';
 
 export default function ProfileScreen() {
-  const { session, isGuest, name, avatarUrl } = useSession();
+  const { session, isGuest, isAdmin, name, avatarUrl } = useSession();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [foreground, accent] = useThemeColor(['foreground', 'accent']);
@@ -63,20 +63,22 @@ export default function ProfileScreen() {
 
   // The rows of the menu, top to bottom.
   const options = [
-    {
+    // An admin looks after everyone's reports and sends none: their menu is only about the app.
+    !isAdmin && {
       icon: Megaphone01Icon,
       title: 'Your reports',
       description: 'Strays you reported, and what became of them.',
       onPress: () => router.push({ pathname: '/history', params: { kind: 'reports' } }),
     },
     // Only Google users can go to an animal, so only they have rescues.
-    !isGuest && {
-      icon: HeartCheckIcon,
-      title: 'Your rescues',
-      description: 'Animals you marked as rescued.',
-      onPress: () => router.push({ pathname: '/history', params: { kind: 'rescues' } }),
-    },
-    {
+    !isGuest &&
+      !isAdmin && {
+        icon: HeartCheckIcon,
+        title: 'Your rescues',
+        description: 'Animals you marked as rescued.',
+        onPress: () => router.push({ pathname: '/history', params: { kind: 'rescues' } }),
+      },
+    !isAdmin && {
       icon: Notification01Icon,
       title: 'Alerts',
       // Says what is chosen now, once it is known.

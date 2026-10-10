@@ -1,5 +1,6 @@
 // One file per icon. The package's main entry loads all 12,000 icon files at once, which crashes Metro.
 import Camera01Icon from '@hugeicons/core-free-icons/Camera01Icon';
+import DashboardSquare01Icon from '@hugeicons/core-free-icons/DashboardSquare01Icon';
 import LeftToRightListBulletIcon from '@hugeicons/core-free-icons/LeftToRightListBulletIcon';
 import MapsIcon from '@hugeicons/core-free-icons/MapsIcon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
@@ -17,6 +18,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useSession } from '@/hooks/use-session';
 
 export const BAR_HEIGHT = 64;
 const ICON_SIZE = 20;
@@ -24,13 +26,15 @@ const ICON_SIZE = 20;
 const LINE_SHARE = 0.6;
 const SWITCH_MS = 240;
 
-const TABS: readonly {
+type Tab = {
   name: string;
   href: '/' | '/list' | '/report' | '/profile';
   label: string;
   accessibilityLabel?: string;
   icon: IconSvgElement;
-}[] = [
+};
+
+const TABS: readonly Tab[] = [
   { name: 'index', href: '/', label: 'Map', icon: MapsIcon },
   { name: 'list', href: '/list', label: 'List', icon: LeftToRightListBulletIcon },
   {
@@ -40,6 +44,14 @@ const TABS: readonly {
     accessibilityLabel: 'Report a stray',
     icon: Camera01Icon,
   },
+  { name: 'profile', href: '/profile', label: 'Profile', icon: UserIcon },
+];
+
+// An admin does not report or rescue. The first two routes are the same ones, and show the
+// admin's own screens (see `(tabs)/index.tsx` and `(tabs)/list.tsx`).
+const ADMIN_TABS: readonly Tab[] = [
+  { name: 'index', href: '/', label: 'Dashboard', icon: DashboardSquare01Icon },
+  { name: 'list', href: '/list', label: 'Reports', icon: LeftToRightListBulletIcon },
   { name: 'profile', href: '/profile', label: 'Profile', icon: UserIcon },
 ];
 
@@ -69,12 +81,14 @@ export function useHideTabBar(isHidden: boolean) {
 }
 
 export default function AppTabs() {
+  const { isAdmin } = useSession();
+  const tabs = isAdmin ? ADMIN_TABS : TABS;
   return (
     <Tabs style={styles.root}>
       <TabSlot style={styles.slot} />
       <TabList asChild>
-        <TabBar>
-          {TABS.map((tab) => (
+        <TabBar tabs={tabs}>
+          {tabs.map((tab) => (
             <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
               <TabButton
                 label={tab.label}
@@ -89,7 +103,7 @@ export default function AppTabs() {
   );
 }
 
-function TabBar({ style, children, ...props }: ViewProps) {
+function TabBar({ tabs, style, children, ...props }: ViewProps & { tabs: readonly Tab[] }) {
   const insets = useSafeAreaInsets();
   const [surface, border, accent] = useThemeColor(['surface', 'border', 'accent']);
   const [rowWidth, setRowWidth] = useState(0);
@@ -99,10 +113,10 @@ function TabBar({ style, children, ...props }: ViewProps) {
   // Screens opened inside a tab (for example /report/form) keep that tab selected.
   const selected = Math.max(
     0,
-    TABS.findIndex((tab) => tab.href !== '/' && pathname.startsWith(tab.href))
+    tabs.findIndex((tab) => tab.href !== '/' && pathname.startsWith(tab.href))
   );
 
-  const tabWidth = rowWidth / TABS.length;
+  const tabWidth = rowWidth / tabs.length;
   const lineWidth = tabWidth * LINE_SHARE;
   const position = useDerivedValue(
     () => withTiming(selected, { duration: SWITCH_MS }),

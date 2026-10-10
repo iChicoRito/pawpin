@@ -25,7 +25,8 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - `src/lib/reports.ts` — the report draft, the choice lists, sending a report, and keeping an unsent one.
 - `src/app/components.tsx` — every HeroUI component on one page. Opened by the small gear button over the tabs, in development builds only.
 - `src/components/app-tabs.tsx` — the custom bottom tab bar.
-- `src/hooks/use-session.tsx` — `useSession()`: session, guest flag, name, photo.
+- `src/hooks/use-session.tsx` — `useSession()`: session, guest flag, admin flag, name, photo.
+- **Admin** (a profile whose `role` was set to `admin` by hand in Supabase): three tabs instead of four, Dashboard, Reports, Profile. Same routes as Map and List: `(tabs)/index` and `(tabs)/list` show `src/components/admin-dashboard.tsx` and `src/components/admin-reports.tsx` when `isAdmin`. `src/lib/admin.ts` holds the admin's reads and `adminCloseReport`. The database refuses all of it to anyone else (`supabase/migrations/0020_admin.sql`, and the flags rule in `0001`); `isAdmin` only picks the screens.
 - `src/lib/supabase.ts`, `src/lib/auth.ts` — Supabase client and Google sign-in.
 - `supabase/migrations/` — SQL, numbered in the order it was applied.
 - `supabase/tests/` — check scripts that roll themselves back. Paste into the Supabase SQL Editor to run.

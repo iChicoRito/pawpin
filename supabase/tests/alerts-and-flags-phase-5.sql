@@ -156,5 +156,62 @@ end;
 $$;
 reset role;
 
+-- Phase 6: only an admin reads flags, and nobody makes themselves one. The rules are from 0001.
+insert into auth.users (id, is_anonymous) values
+  ('00000000-0000-4000-8000-00000000000d', false);  -- an admin, made by hand as the owner does
+update public.profiles set role = 'admin' where id = '00000000-0000-4000-8000-00000000000d';
+-- How many flags the reports above hold by now, counted as the database owner.
+select set_config('test.fixture_flags', (
+  select count(*) from public.flags f join public.reports r on r.id = f.report_id
+  where r.reporter_id = '00000000-0000-4000-8000-00000000000a')::text, true);
+
+set local role authenticated;
+do $$
+declare
+  reporter constant uuid := '00000000-0000-4000-8000-00000000000a';
+  google constant uuid := '00000000-0000-4000-8000-00000000000b';
+  guest constant uuid := '00000000-0000-4000-8000-00000000000c';
+  admin constant uuid := '00000000-0000-4000-8000-00000000000d';
+  seen integer;
+begin
+  -- The admin reads every flag, joined to its report, the way the app asks for them.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', admin, 'role', 'authenticated', 'is_anonymous', false)::text, true);
+  select count(*) into seen from public.flags f join public.reports r on r.id = f.report_id
+    where r.reporter_id = reporter;
+  if seen = 0 or seen <> current_setting('test.fixture_flags')::integer then
+    raise exception 'FAIL: the admin read % of % flags', seen, current_setting('test.fixture_flags');
+  end if;
+
+  -- A guest reads none.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', guest, 'role', 'authenticated', 'is_anonymous', true)::text, true);
+  select count(*) into seen from public.flags;
+  if seen <> 0 then raise exception 'FAIL: a guest read % flags', seen; end if;
+
+  -- A plain user reads none, and cannot make themselves an admin.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', google, 'role', 'authenticated', 'is_anonymous', false)::text, true);
+  select count(*) into seen from public.flags;
+  if seen <> 0 then raise exception 'FAIL: a plain user read % flags', seen; end if;
+  begin
+    update public.profiles set role = 'admin' where id = google;
+    raise exception 'FAIL: a user made themselves an admin';
+  exception when insufficient_privilege then null;
+  end;
+  if public.is_admin() then raise exception 'FAIL: a plain user counts as an admin'; end if;
+end;
+$$;
+
+reset role;
+do $$
+begin
+  if (select role from public.profiles
+      where id = '00000000-0000-4000-8000-00000000000b') <> 'user' then
+    raise exception 'FAIL: a plain user''s role was changed';
+  end if;
+end;
+$$;
+
 select 'Phase 5 checks passed' as result;
 rollback;

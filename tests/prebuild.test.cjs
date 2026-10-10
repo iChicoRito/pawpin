@@ -56,6 +56,7 @@ test('nearby list gives FlatList individual reports and stable report IDs', () =
     'expo-router': { useIsFocused: () => true, useRouter: () => ({ push() {} }) },
     'heroui-native': ui, react: state.react, 'react-native': native,
     'react-native-safe-area-context': insets, '@/components/location-gate': {},
+    '@/components/admin-reports': {},
     '@/components/list-filter': { ListFilter: 'ListFilter' },
     '@/components/report-card': { ReportListSkeleton: 'Skeleton', ReportRow: 'ReportRow', ReportList: 'ReportList' },
     '@/components/themed-text': themed, '@/components/themed-view': themed,
