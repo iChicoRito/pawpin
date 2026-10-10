@@ -27,6 +27,9 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - `src/components/app-tabs.tsx` — the custom bottom tab bar.
 - `src/hooks/use-session.tsx` — `useSession()`: session, guest flag, admin flag, name, photo.
 - **Admin** (a profile whose `role` was set to `admin` by hand in Supabase): three tabs instead of four, Dashboard, Reports, Profile. Same routes as Map and List: `(tabs)/index` and `(tabs)/list` show `src/components/admin-dashboard.tsx` and `src/components/admin-reports.tsx` when `isAdmin`. `src/lib/admin.ts` holds the admin's reads and `adminCloseReport`. The database refuses all of it to anyone else (`supabase/migrations/0020_admin.sql`, and the flags rule in `0001`); `isAdmin` only picks the screens.
+- `src/lib/alerts.ts` — the push token, the last place, the alert distance, and opening a report from a tapped alert. `src/app/alerts.tsx` — the **Alerts** screen. Each has a `.web` twin that does nothing: push does not work in a browser.
+- `src/lib/flags.ts` — the flag reasons, sending a flag, and the admin's read of flagged reports.
+- `src/app/safety.tsx` — the safety tips. The words are in the file.
 - `src/lib/supabase.ts`, `src/lib/auth.ts` — Supabase client and Google sign-in.
 - `supabase/migrations/` — SQL, numbered in the order it was applied.
 - `supabase/tests/` — check scripts that roll themselves back. Paste into the Supabase SQL Editor to run.
@@ -39,7 +42,7 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - Roadmap Phase 2 (reporting a stray) is built: `docs/implementation-plan/stray-reporting/`. Some of its screen checks were marked done by the owner without being seen line by line; each phase file says which. The notifications request (part of R-11) waits for roadmap Phase 5.
 - Roadmap Phase 3 (map, list, report page, directions) is built: `docs/implementation-plan/stray-finding/`. Most of its screen checks were marked done by the owner without being reported line by line; each phase file says which. A path drawn on PawPin's own map was tried and removed: the free routing servers were not dependable.
 - Roadmap Phase 4 (claiming, outcomes, live changes, closing, profile history) is built: `docs/implementation-plan/rescue-coordination/`. Most of its screen checks were marked done by the owner without being reported line by line; each phase file says which.
-- Next is roadmap Phase 5: alerts, flags, safety tips.
+- Roadmap Phase 5 (alerts, flags, the admin's app, safety tips) is built: `docs/implementation-plan/alerts-and-flags/`. Most of its screen checks rest on the owner's word; each phase file says which. That was the last phase: version 1's building work is finished.
 
 **Things that have already cost time**
 
@@ -73,6 +76,13 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - HeroUI's `variant="blur"` overlay is iPhone only. The blur behind the report page's confirm dialog is `expo-blur`: a `BlurTargetView` around the page and a `BlurView` in the dialog's portal. The blur copies only what views inside the target draw, so the scroll view needs its own background color or empty areas come out black. Android 12 and up.
 - A MapLibre map is not blurred unless it has `androidView="texture"`, as the small map on the report page does.
 - Brand logos come from `thesvg`, one file per icon: `import { svg } from 'thesvg/google-maps'`. The main entry loads 6,500 icons.
+- Other users cannot read a profile's `push_token` or `last_location` (`supabase/migrations/0014_profile_privacy.sql`). A read of `profiles` that names a column outside the granted list fails whole.
+- Alerts are sent by database triggers through `pg_net` (`0015`, `0017`), not by the app. The request leaves only when the transaction commits, so a rolled-back test sends nothing.
+- A trigger that sends an alert must never fail the change it rides on. Its body is wrapped so an error becomes a warning.
+- `google-services.json` is needed to build with push and is not committed.
+- The report page opens any report by its id, finished or far away (`report_by_id`, `0016`). Do not assume the report is among the nearby ones.
+- A flag cannot be read back by whoever sent it. Only an admin reads flags.
+- The dev server serves the browser version on `localhost:8081`. Its first page load can take minutes while it bundles.
 - Do not run Prettier with its defaults on this code. The files use single quotes, 100 columns, and brackets on the same line: `--single-quote --print-width 100 --bracket-same-line`.
 
 ## Commands

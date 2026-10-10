@@ -575,6 +575,13 @@ export default function ReportDetailScreen() {
               scrolls with the page and is not held over it. A finished report has no buttons:
               only the room they would have taken, so the page does not end against the edge. */}
           <View style={[styles.actions, { paddingBottom: insets.bottom + Spacing.four }]}>
+            {/* For the rescuer who is going, for as long as they are: a toast would be gone before
+                they got there. Quiet, above the two buttons, so it is not taken for a third. */}
+            {isMyClaim && (
+              <Button variant="tertiary" size="sm" onPress={() => router.push('/safety')}>
+                Read the safety tips
+              </Button>
+            )}
             {/* One line, two buttons at most: how to get there, and the one thing to do next. */}
             {!hasEnded && (
               <View style={styles.actionsRow}>
@@ -1091,6 +1098,7 @@ const styles = StyleSheet.create({
   },
   // Set off from the last section by space alone, like the sections from each other.
   actions: {
+    gap: Spacing.two,
     paddingTop: Spacing.five,
     paddingHorizontal: Spacing.four,
   },

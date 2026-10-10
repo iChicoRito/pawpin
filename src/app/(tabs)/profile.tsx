@@ -1,4 +1,5 @@
 import Alert02Icon from '@hugeicons/core-free-icons/Alert02Icon';
+import FirstAidKitIcon from '@hugeicons/core-free-icons/FirstAidKitIcon';
 import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
@@ -97,6 +98,13 @@ export default function ProfileScreen() {
       // Says what is chosen now.
       description: APPEARANCES.find((option) => option.value === appearance)?.label ?? '',
       onPress: () => router.push('/appearance'),
+    },
+    // For whoever may go to an animal. An admin does not.
+    !isAdmin && {
+      icon: FirstAidKitIcon,
+      title: 'Safety tips',
+      description: 'How to approach a stray without getting hurt.',
+      onPress: () => router.push('/safety'),
     },
     {
       icon: Settings01Icon,

@@ -54,6 +54,7 @@ function RootNavigator() {
           <Stack.Screen name="settings" options={{ headerShown: true, title: 'Settings' }} />
           <Stack.Screen name="alerts" options={{ headerShown: true, title: 'Alerts' }} />
           <Stack.Screen name="appearance" options={{ headerShown: true, title: 'Appearance' }} />
+          <Stack.Screen name="safety" options={{ headerShown: true, title: 'Safety tips' }} />
           <Stack.Screen name="report/[id]" options={{ headerShown: true, title: 'Report' }} />
           {/* The screen sets its own title: "Your reports" or "Your rescues". */}
           <Stack.Screen name="history" options={{ headerShown: true, title: '' }} />
