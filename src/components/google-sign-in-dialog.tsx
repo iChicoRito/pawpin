@@ -10,13 +10,21 @@ import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
 type GoogleSignInDialogProps = {
   isOpen: boolean;
   onClose: () => void;
+  /** Why a Google account is needed here. Left out, it is the wording for going to an animal. */
+  title?: string;
+  description?: string;
 };
 
 /**
  * Shown when a guest tries something only a Google user may do. Says why, and offers the sign-in.
  * The guest keeps their account and their reports; only the way they sign in changes.
  */
-export function GoogleSignInDialog({ isOpen, onClose }: GoogleSignInDialogProps) {
+export function GoogleSignInDialog({
+  isOpen,
+  onClose,
+  title = 'Sign in to respond',
+  description = 'Rescuers need an account others can trust. Sign in with Google and your reports stay yours.',
+}: GoogleSignInDialogProps) {
   const [status, setStatus] = useState<'idle' | 'working' | 'failed' | 'conflict'>('idle');
 
   function close() {
@@ -46,12 +54,12 @@ export function GoogleSignInDialog({ isOpen, onClose }: GoogleSignInDialogProps)
         <Dialog.Overlay />
         <Dialog.Content>
           <Dialog.Title>
-            {isConflict ? 'This Google account is already on PawPin' : 'Sign in to respond'}
+            {isConflict ? 'This Google account is already on PawPin' : title}
           </Dialog.Title>
           <Dialog.Description>
             {isConflict
               ? 'It has its own account, so it cannot be joined to this guest. If you switch, reports you made as a guest stay behind and you cannot get back to them.'
-              : 'Rescuers need an account others can trust. Sign in with Google and your reports stay yours.'}
+              : description}
           </Dialog.Description>
           {status === 'failed' && (
             <ThemedText type="small" role="alert" style={styles.failed}>

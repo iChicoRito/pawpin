@@ -156,3 +156,47 @@ test('id that is no report gives null, not an error', async () => {
   const { api } = reportApi([]);
   assert.equal(await api.fetchReport('missing', null), null);
 });
+
+function flagsApi(failure) {
+  const calls = [];
+  const supabase = new PostgrestClient('https://example.test/rest/v1', {
+    fetch: async (url, init) => {
+      const request = new URL(url);
+      calls.push({ path: request.pathname, asksForRow: request.searchParams.has('select'), body: JSON.parse(init.body) });
+      return failure
+        ? new Response(JSON.stringify(failure), { status: 409, headers: { 'Content-Type': 'application/json' } })
+        : new Response(null, { status: 201 });
+    },
+  });
+  return { api: loadSource('src/lib/flags.ts', { '@/lib/supabase': { supabase } }), calls };
+}
+
+test('flag is saved with its report, its sender, and its reason, without asking for the row back', async () => {
+  const { api, calls } = flagsApi();
+  await api.flagReport('r1', 'u1', api.FLAG_REASONS[1]);
+  assert.deepEqual(calls, [{
+    path: '/rest/v1/flags', asksForRow: false,
+    body: { report_id: 'r1', flagged_by: 'u1', reason: 'Wrong place' },
+  }]);
+});
+
+test('second flag on the same report is told apart from other failures', async () => {
+  const duplicate = flagsApi({ code: '23505', message: 'duplicate key value violates unique constraint' });
+  const again = await duplicate.api.flagReport('r1', 'u1', 'Wrong place').catch((error) => error);
+  assert.equal(duplicate.api.isAlreadyFlagged(again), true);
+
+  const refused = flagsApi({ code: '42501', message: 'new row violates row-level security policy' });
+  const other = await refused.api.flagReport('r1', 'u1', 'Wrong place').catch((error) => error);
+  assert.equal(other.code, '42501');
+  assert.equal(refused.api.isAlreadyFlagged(other), false);
+  assert.equal(refused.api.isAlreadyFlagged(new Error('Network request failed')), false);
+});
+
+test('guest who has used up their flags is told apart, so the app can offer the sign-in', async () => {
+  const limited = flagsApi({ code: 'P0001', message: 'guest_flag_limit' });
+  const refusal = await limited.api.flagReport('r1', 'u1', 'Wrong place').catch((error) => error);
+  assert.equal(limited.api.isGuestFlagLimit(refusal), true);
+  assert.equal(limited.api.isAlreadyFlagged(refusal), false);
+  assert.equal(limited.api.isGuestFlagLimit({ code: '23505', message: 'duplicate key' }), false);
+  assert.equal(limited.api.isGuestFlagLimit(new Error('Network request failed')), false);
+});

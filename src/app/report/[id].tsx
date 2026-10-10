@@ -3,6 +3,7 @@ import Calendar03Icon from '@hugeicons/core-free-icons/Calendar03Icon';
 import CancelCircleIcon from '@hugeicons/core-free-icons/CancelCircleIcon';
 import CheckmarkCircle02Icon from '@hugeicons/core-free-icons/CheckmarkCircle02Icon';
 import FirstAidKitIcon from '@hugeicons/core-free-icons/FirstAidKitIcon';
+import Flag02Icon from '@hugeicons/core-free-icons/Flag02Icon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import PaintBoardIcon from '@hugeicons/core-free-icons/PaintBoardIcon';
 import PawPrintIcon from '@hugeicons/core-free-icons/PawPrintIcon';
@@ -13,7 +14,7 @@ import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
 import { BlurTargetView, BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Avatar,
   Button,
@@ -27,9 +28,18 @@ import {
   Tabs,
   useThemeColor,
   useToast,
+  type MenuTriggerRef,
 } from 'heroui-native';
-import { Fragment, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+  type RefObject,
+} from 'react';
+import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -54,6 +64,13 @@ import { useNearbyReports } from '@/hooks/use-nearby-reports';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
 import { cancelClaim, claimReport, closeReport, refusalOf, resolveReport } from '@/lib/claims';
+import {
+  FLAG_REASONS,
+  flagReport,
+  isAlreadyFlagged,
+  isGuestFlagLimit,
+  type FlagReason,
+} from '@/lib/flags';
 import { formatAge, formatDistance, initialsOf } from '@/lib/format';
 import { fetchReport, URGENCY_COLORS, type NearbyReport, type ReportDetail } from '@/lib/nearby';
 import {
@@ -108,6 +125,13 @@ const CONFIRMATIONS = {
     confirm: 'I can’t make it',
     isDanger: false,
   },
+  // Not a status change, but asked the same way: a flag cannot be taken back either.
+  flag: {
+    title: 'Flag this report?',
+    description: 'An admin will look at it. The reporter is not told who flagged it.',
+    confirm: 'Flag report',
+    isDanger: false,
+  },
 } as const;
 
 /** One report in full: what a rescuer reads before deciding to go. */
@@ -121,9 +145,22 @@ export default function ReportDetailScreen() {
   const { toast } = useToast();
   // Which rescue button is waiting for the database. The others are held until it answers.
   const [busy, setBusy] = useState<
-    'claim' | 'cancel' | 'rescued' | 'not_found' | 'close' | 'close_rescued' | null
+    'claim' | 'cancel' | 'rescued' | 'not_found' | 'close' | 'close_rescued' | 'flag' | null
   >(null);
+  // What the viewer said is wrong with the report, kept until they confirm the flag.
+  const [flagReason, setFlagReason] = useState<FlagReason>(FLAG_REASONS[0]);
+  // Only for as long as this page is open: a flag cannot be read back, so it is not known later.
+  const [hasFlagged, setHasFlagged] = useState(false);
+  // Whether the flag drawer is up, as the drawer itself reports it. Opened through this trigger.
+  const [isFlagOpen, setIsFlagOpen] = useState(false);
+  const flagTrigger = useRef<MenuTriggerRef>(null);
+  // Which drawer at the foot of the page is up, if any. The page is blurred and dimmed behind a
+  // drawer only while that one is up: a drawer's parts stay mounted when it is closed, unlike the
+  // dialog's, and two of these drawers can be on the page at once.
+  const [openSheet, setOpenSheet] = useState<'close' | 'directions' | 'status' | null>(null);
+  // The Google sign-in, and why it is being asked for: to go to an animal, or to flag more.
   const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [signInFor, setSignInFor] = useState<'claim' | 'flags'>('claim');
   // The status change waiting for a yes. Kept after the dialog closes, so its words do not vanish
   // while it fades out.
   const [pending, setPending] = useState<keyof typeof CONFIRMATIONS>('rescued');
@@ -145,7 +182,7 @@ export default function ReportDetailScreen() {
 
   const reporter = useReporter(report?.reporterId);
   const directions = useDirections(report ?? undefined);
-  const muted = useThemeColor('muted');
+  const [muted, foreground] = useThemeColor(['muted', 'foreground']);
 
   if (!report) {
     // Still reading. Said in words too, for someone who cannot see the spinner.
@@ -245,15 +282,60 @@ export default function ReportDetailScreen() {
     }
   }
 
+  function openSignIn(why: typeof signInFor) {
+    setSignInFor(why);
+    setIsSignInOpen(true);
+  }
+
   function askFirst(kind: keyof typeof CONFIRMATIONS) {
     setPending(kind);
     setIsConfirmOpen(true);
+  }
+
+  /** Sends the flag. Apart from the rescue actions: it changes nothing anyone else can see. */
+  async function sendFlag(reportId: string) {
+    const userId = session?.user.id;
+    if (!userId) return;
+    setBusy('flag');
+    try {
+      await flagReport(reportId, userId, flagReason);
+      setHasFlagged(true);
+      toast.show({
+        variant: 'success',
+        icon: <ToastIcon status="success" />,
+        label: 'Report flagged',
+        description: 'Thanks. An admin will look at this report.',
+      });
+    } catch (error) {
+      // A guest past their 3 flags for the day is not shown an error: they are shown the way on.
+      if (isGuestFlagLimit(error)) {
+        openSignIn('flags');
+        return;
+      }
+      const isRepeat = isAlreadyFlagged(error);
+      if (isRepeat) setHasFlagged(true);
+      else console.warn('Flagging the report failed:', error);
+      toast.show({
+        variant: 'danger',
+        icon: <ToastIcon status="danger" />,
+        label: isRepeat ? 'You already flagged this report' : 'Could not send',
+        description: isRepeat
+          ? 'An admin will look at it.'
+          : 'Check your connection and try again.',
+      });
+    } finally {
+      setBusy(null);
+    }
   }
 
   function confirm() {
     setIsConfirmOpen(false);
     if (!report) return;
     const reportId = report.id;
+    if (pending === 'flag') {
+      sendFlag(reportId);
+      return;
+    }
     act(pending, () =>
       pending === 'close' || pending === 'close_rescued'
         ? closeReport(reportId, pending === 'close_rescued')
@@ -273,6 +355,30 @@ export default function ReportDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      {/* The flag sits in the header, away from the two buttons at the foot of the page: it is for
+          the rare report that is fake or abusive, not a step in a rescue. Not on the viewer's own
+          report, which they can close instead, and not on a finished one. */}
+      <Stack.Screen
+        options={{
+          headerRight:
+            !hasEnded && !isMine
+              ? () => (
+                  <Pressable
+                    role="button"
+                    aria-label={hasFlagged ? 'Report flagged' : 'Flag this report'}
+                    disabled={busy !== null || hasFlagged}
+                    hitSlop={12}
+                    onPress={() => flagTrigger.current?.open()}
+                    style={({ pressed }) => [
+                      styles.headerAction,
+                      (pressed || hasFlagged) && styles.headerActionQuiet,
+                    ]}>
+                    <HugeiconsIcon icon={Flag02Icon} size={22} color={foreground} />
+                  </Pressable>
+                )
+              : undefined,
+        }}
+      />
       <BlurTargetView ref={page} style={styles.container}>
         {/* The page scrolls above the buttons, which stay put. The color is for the blur: it copies
             only what the views in here draw, and the blur target does not draw a color of its own.
@@ -432,13 +538,17 @@ export default function ReportDetailScreen() {
                 {isMine ? (
                   // The reporter was there and needs no route. What only they can do is end the
                   // report, and say how it ended. It fills the bar: there is nothing else to do here.
-                  <Menu presentation="bottom-sheet" style={!isMyClaim && styles.mainAction}>
+                  <Menu
+                    presentation="bottom-sheet"
+                    onOpenChange={(open) => setOpenSheet(open ? 'close' : null)}
+                    style={!isMyClaim && styles.mainAction}>
                     <Menu.Trigger asChild>
                       <Button variant="danger-soft" isDisabled={busy !== null}>
                         {busy === 'close' || busy === 'close_rescued' ? 'Closing…' : 'Close report'}
                       </Button>
                     </Menu.Trigger>
                     <Menu.Portal>
+                      {openSheet === 'close' && <PageVeil page={page} isDark={isDark} />}
                       <Menu.Overlay />
                       <Menu.Content presentation="bottom-sheet">
                         <Menu.Label>Why are you closing it?</Menu.Label>
@@ -471,6 +581,7 @@ export default function ReportDetailScreen() {
                 view around its button, so it is the Menu that takes its share of the line. */}
                     <Menu
                       presentation="bottom-sheet"
+                      onOpenChange={(open) => setOpenSheet(open ? 'directions' : null)}
                       style={isResponding && !isMyClaim && styles.mainAction}>
                       <Menu.Trigger asChild>
                         {/* Filled only when it is the sole button: someone else is already going. */}
@@ -479,6 +590,7 @@ export default function ReportDetailScreen() {
                         </Button>
                       </Menu.Trigger>
                       <Menu.Portal>
+                        {openSheet === 'directions' && <PageVeil page={page} isDark={isDark} />}
                         <Menu.Overlay />
                         <Menu.Content presentation="bottom-sheet">
                           <Menu.Label>Open directions in</Menu.Label>
@@ -505,7 +617,7 @@ export default function ReportDetailScreen() {
                     isDisabled={busy !== null}
                     // A guest sees the same button and learns why it needs a Google account.
                     onPress={() =>
-                      isGuest ? setIsSignInOpen(true) : act('claim', () => claimReport(report.id))
+                      isGuest ? openSignIn('claim') : act('claim', () => claimReport(report.id))
                     }>
                     {busy === 'claim' ? 'Sending…' : 'I’m on my way'}
                   </Button>
@@ -513,7 +625,10 @@ export default function ReportDetailScreen() {
 
                 {/* The outcomes cannot be undone, so they take a second, deliberate tap. */}
                 {isMyClaim && (
-                  <Menu presentation="bottom-sheet" style={styles.mainAction}>
+                  <Menu
+                    presentation="bottom-sheet"
+                    onOpenChange={(open) => setOpenSheet(open ? 'status' : null)}
+                    style={styles.mainAction}>
                     <Menu.Trigger asChild>
                       <Button isDisabled={busy !== null}>
                         {busy === 'rescued' || busy === 'not_found' || busy === 'cancel'
@@ -522,6 +637,7 @@ export default function ReportDetailScreen() {
                       </Button>
                     </Menu.Trigger>
                     <Menu.Portal>
+                      {openSheet === 'status' && <PageVeil page={page} isDark={isDark} />}
                       <Menu.Overlay />
                       <Menu.Content presentation="bottom-sheet">
                         <Menu.Label>What happened?</Menu.Label>
@@ -568,26 +684,45 @@ export default function ReportDetailScreen() {
         </ScrollView>
       </BlurTargetView>
 
+      {/* What is wrong with the report. Opened by the flag in the header, through a trigger that is
+          on the page but takes no room and cannot be seen, pressed, or read out.
+          Not by handing the drawer `isOpen`: HeroUI then misses a drawer that is swiped down. It
+          tells the page only when the new value differs from the one it remembers, and the swipe
+          remembers the value from before the drawer opened. The page went on thinking the drawer
+          was up, kept its blur, and the next tap landed on the unseen overlay. */}
+      <Menu presentation="bottom-sheet" onOpenChange={setIsFlagOpen}>
+        <Menu.Trigger
+          ref={flagTrigger}
+          aria-hidden
+          importantForAccessibility="no-hide-descendants"
+          tabIndex={-1}
+          pointerEvents="none"
+          style={styles.unseenTrigger}
+        />
+        <Menu.Portal>
+          {isFlagOpen && <PageVeil page={page} isDark={isDark} />}
+          <Menu.Overlay />
+          <Menu.Content presentation="bottom-sheet">
+            <Menu.Label>What is wrong with this report?</Menu.Label>
+            {FLAG_REASONS.map((reason) => (
+              <Menu.Item
+                key={reason}
+                style={styles.sheetRow}
+                onPress={() => {
+                  setFlagReason(reason);
+                  askFirst('flag');
+                }}>
+                <Menu.ItemTitle>{reason}</Menu.ItemTitle>
+              </Menu.Item>
+            ))}
+          </Menu.Content>
+        </Menu.Portal>
+      </Menu>
+
       {/* A status change is seen by everyone, and an outcome cannot be undone: ask once. */}
       <Dialog isOpen={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <Dialog.Portal>
-          {/* The page goes out of focus behind the question. HeroUI's own blur overlay is iPhone
-              only, so the blur is laid here, under its dimming. Android 12 and up; older phones
-              get the dimming alone. */}
-          <BlurView
-            blurTarget={page}
-            blurMethod="dimezisBlurViewSdk31Plus"
-            intensity={14}
-            tint="dark"
-            pointerEvents="none"
-            style={StyleSheet.absoluteFill}
-          />
-          {/* A light blur alone leaves the page as bright as the dialog, so it is darkened too.
-              A dark page needs more black than a light one before it looks any darker. */}
-          <View
-            pointerEvents="none"
-            style={[StyleSheet.absoluteFill, isDark ? styles.dimOnDark : styles.dimOnLight]}
-          />
+          <PageVeil page={page} isDark={isDark} />
           <Dialog.Overlay />
           <Dialog.Content>
             <Dialog.Title>{CONFIRMATIONS[pending].title}</Dialog.Title>
@@ -616,8 +751,42 @@ export default function ReportDetailScreen() {
         </Dialog.Portal>
       </Dialog>
 
-      <GoogleSignInDialog isOpen={isSignInOpen} onClose={() => setIsSignInOpen(false)} />
+      <GoogleSignInDialog
+        isOpen={isSignInOpen}
+        onClose={() => setIsSignInOpen(false)}
+        {...(signInFor === 'flags' && {
+          title: 'Sign in to flag more',
+          description:
+            'Guests can flag 3 reports in 24 hours. Sign in with Google to flag this one; your reports stay yours.',
+        })}
+      />
     </ThemedView>
+  );
+}
+
+/**
+ * The page going out of focus behind a dialog or a drawer: blurred, then darkened. HeroUI's own
+ * blur overlay is iPhone only, so the blur is laid here, under the overlay's dimming. Android 12
+ * and up; older phones get the dimming alone. The blur copies what the views inside `page` draw.
+ */
+function PageVeil({ page, isDark }: { page: RefObject<View | null>; isDark: boolean }) {
+  return (
+    <>
+      <BlurView
+        blurTarget={page}
+        blurMethod="dimezisBlurViewSdk31Plus"
+        intensity={14}
+        tint="dark"
+        pointerEvents="none"
+        style={StyleSheet.absoluteFill}
+      />
+      {/* A light blur alone leaves the page as bright as what lies over it, so it is darkened too.
+          A dark page needs more black than a light one before it looks any darker. */}
+      <View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, isDark ? styles.dimOnDark : styles.dimOnLight]}
+      />
+    </>
   );
 }
 
@@ -905,6 +1074,19 @@ const styles = StyleSheet.create({
   },
   choiceTint: {
     opacity: 0.08,
+  },
+  // The flag in the header. Its touch area is widened by hitSlop to a thumb's size.
+  headerAction: {
+    padding: Spacing.one,
+  },
+  unseenTrigger: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+  },
+  // Pressed, or already used.
+  headerActionQuiet: {
+    opacity: 0.4,
   },
   sheetText: {
     flex: 1,
