@@ -1,10 +1,10 @@
 -- Run after 0018_flags.sql and 0019_guest_flag_limit.sql. All fixtures are rolled back.
 begin;
 
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', false),  -- the reporter
-  ('00000000-0000-4000-8000-00000000000b', false),  -- a Google user
-  ('00000000-0000-4000-8000-00000000000c', true);   -- a guest
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', false, '{}'),  -- the reporter
+  ('00000000-0000-4000-8000-00000000000b', false, '{}'),  -- a Google user
+  ('00000000-0000-4000-8000-00000000000c', true, '{"guest_device_id":"000000000000000c"}');
 
 -- Far out at sea, so no real user is alerted about these reports.
 insert into public.reports (id, reporter_id, location, urgency)

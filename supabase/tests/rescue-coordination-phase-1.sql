@@ -5,11 +5,11 @@
 begin;
 
 -- A reporter, two rescuers, and a guest. All throwaway.
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', false),
-  ('00000000-0000-4000-8000-00000000000b', false),
-  ('00000000-0000-4000-8000-00000000000c', false),
-  ('00000000-0000-4000-8000-00000000000d', true);
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', false, '{}'),
+  ('00000000-0000-4000-8000-00000000000b', false, '{}'),
+  ('00000000-0000-4000-8000-00000000000c', false, '{}'),
+  ('00000000-0000-4000-8000-00000000000d', true, '{"guest_device_id":"000000000000000d"}');
 
 set local role authenticated;
 set local request.jwt.claims =

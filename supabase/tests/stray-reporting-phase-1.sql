@@ -5,9 +5,9 @@
 begin;
 
 -- Two throwaway users: A is a guest, B is a Google user. The Phase 1 trigger makes their profiles.
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', true),
-  ('00000000-0000-4000-8000-00000000000b', false);
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', true, '{"guest_device_id":"000000000000000a"}'),
+  ('00000000-0000-4000-8000-00000000000b', false, '{}');
 
 -- Act as guest A.
 set local role authenticated;

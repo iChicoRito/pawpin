@@ -3,10 +3,10 @@
 -- net.http_request_queue, is read there, and is thrown away by the rollback. Nothing is sent.
 begin;
 
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', false),  -- a reporter with a phone
-  ('00000000-0000-4000-8000-00000000000b', false),  -- the rescuer
-  ('00000000-0000-4000-8000-00000000000c', true);   -- a reporter with no phone saved
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', false, '{}'),  -- a reporter with a phone
+  ('00000000-0000-4000-8000-00000000000b', false, '{}'),  -- the rescuer
+  ('00000000-0000-4000-8000-00000000000c', true, '{"guest_device_id":"000000000000000c"}');
 
 update public.profiles set push_token = 'tok-a' where id = '00000000-0000-4000-8000-00000000000a';
 update public.profiles set push_token = 'tok-b' where id = '00000000-0000-4000-8000-00000000000b';

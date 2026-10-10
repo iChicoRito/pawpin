@@ -2,7 +2,7 @@ import AlertCircleIcon from '@hugeicons/core-free-icons/AlertCircleIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Image } from 'expo-image';
 import { Button, useThemeColor } from 'heroui-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,39 +12,35 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signInWithGoogle } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { GuestSignInError, signInAsGuest } from '@/lib/guest-auth';
 
 type Method = 'google' | 'guest';
 
-async function signInAsGuest() {
-  // A guest is not asked for a name, so one is made up: "Guest" and four digits. It is a label for
-  // other people to read, not an id, so two guests may get the same one. A database trigger copies
-  // it into the profiles table.
-  const name = `Guest${1000 + Math.floor(Math.random() * 9000)}`;
-  const { error } = await supabase.auth.signInAnonymously({
-    options: { data: { full_name: name } },
-  });
-  if (error) throw error;
-}
-
 export default function WelcomeScreen() {
   const [signingIn, setSigningIn] = useState<Method | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const isSigningIn = useRef(false);
   const danger = useThemeColor('danger');
   const colorScheme = useColorScheme();
 
   async function signIn(method: Method) {
+    if (isSigningIn.current) return;
+    isSigningIn.current = true;
     setSigningIn(method);
-    setFailed(false);
+    setFailure(null);
     try {
       await (method === 'google' ? signInWithGoogle() : signInAsGuest());
       // On success the route guard in the root layout swaps this screen for the tabs.
     } catch (error) {
       // The screen shows a short message; the real cause goes to the dev log.
       console.warn('Sign-in failed:', error);
-      setFailed(true);
+      setFailure(error instanceof GuestSignInError
+        ? error.message
+        : 'Could not sign you in. Check your connection and try again.');
+    } finally {
+      isSigningIn.current = false;
+      setSigningIn(null);
     }
-    setSigningIn(null);
   }
 
   return (
@@ -62,12 +58,12 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={styles.actions}>
-          {failed && (
+          {failure && (
             // Red marks the icon only. As small text on white it is 3.6:1, too faint to read.
             <View role="alert" style={styles.error}>
               <HugeiconsIcon icon={AlertCircleIcon} size={20} color={danger} />
               <ThemedText type="small" style={styles.errorText}>
-                Could not sign you in. Check your connection and try again.
+                {failure}
               </ThemedText>
             </View>
           )}
@@ -85,7 +81,7 @@ export default function WelcomeScreen() {
             {signingIn === 'guest' ? 'Signing in…' : 'Continue as Guest'}
           </Button>
           <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-            Guests can report strays. Guest reports stay on this phone.
+            Guests can report strays. This phone can create one guest account every 3 days.
           </ThemedText>
         </View>
       </SafeAreaView>

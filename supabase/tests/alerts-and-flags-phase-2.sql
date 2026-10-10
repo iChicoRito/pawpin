@@ -3,14 +3,14 @@
 -- net.http_request_queue, is read there, and is thrown away by the rollback. Nothing is sent.
 begin;
 
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', false),  -- the reporter
-  ('00000000-0000-4000-8000-00000000000b', false),  -- 1 km away
-  ('00000000-0000-4000-8000-00000000000c', false),  -- 8 km away
-  ('00000000-0000-4000-8000-00000000000d', false),  -- on the spot, no token
-  ('00000000-0000-4000-8000-00000000000e', false),  -- 1 km away, at the hourly limit
-  ('00000000-0000-4000-8000-00000000000f', true),   -- a guest whose phone is taken over
-  ('00000000-0000-4000-8000-000000000010', false);  -- the account that takes that phone over
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', false, '{}'),  -- the reporter
+  ('00000000-0000-4000-8000-00000000000b', false, '{}'),  -- 1 km away
+  ('00000000-0000-4000-8000-00000000000c', false, '{}'),  -- 8 km away
+  ('00000000-0000-4000-8000-00000000000d', false, '{}'),  -- on the spot, no token
+  ('00000000-0000-4000-8000-00000000000e', false, '{}'),  -- 1 km away, at the hourly limit
+  ('00000000-0000-4000-8000-00000000000f', true, '{"guest_device_id":"000000000000000f"}'),
+  ('00000000-0000-4000-8000-000000000010', false, '{}');  -- the account that takes that phone over
 
 -- The reports are near 14.6000, 121.0000. One hundredth of a degree north is about 1.1 km.
 update public.profiles set push_token = 'tok-a', last_location = 'SRID=4326;POINT(121.0 14.6)'

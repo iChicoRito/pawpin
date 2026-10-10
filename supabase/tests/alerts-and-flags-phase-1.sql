@@ -1,9 +1,9 @@
 -- Run after 0014_profile_privacy.sql. All fixtures are rolled back.
 begin;
 
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', false),
-  ('00000000-0000-4000-8000-00000000000b', true);
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', false, '{}'),
+  ('00000000-0000-4000-8000-00000000000b', true, '{"guest_device_id":"000000000000000b"}');
 
 set local role authenticated;
 

@@ -1,11 +1,11 @@
 -- Run after 0020_admin.sql. All fixtures are rolled back.
 begin;
 
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', false),  -- the reporter
-  ('00000000-0000-4000-8000-00000000000b', false),  -- a Google user, on the way to report 2
-  ('00000000-0000-4000-8000-00000000000c', true),   -- a guest
-  ('00000000-0000-4000-8000-00000000000d', false);  -- an admin, made by hand as the owner does
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', false, '{}'),  -- the reporter
+  ('00000000-0000-4000-8000-00000000000b', false, '{}'),  -- a Google user, on the way to report 2
+  ('00000000-0000-4000-8000-00000000000c', true, '{"guest_device_id":"000000000000000c"}'),
+  ('00000000-0000-4000-8000-00000000000d', false, '{}');  -- an admin, made by hand as the owner does
 update public.profiles set role = 'admin' where id = '00000000-0000-4000-8000-00000000000d';
 
 -- What the real reports add up to, before the fixtures, counted as the database owner.

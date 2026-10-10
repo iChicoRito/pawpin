@@ -54,3 +54,40 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Android guest account cooldown
+
+One Android device ID can create a new guest account every 72 hours. Existing
+sessions and Google sign-in are unaffected. The database enforces the limit, even
+when someone calls anonymous signup directly without the app's status check.
+
+### Deployment
+
+1. Apply `supabase/migrations/0022_guest_creation_cooldown.sql` after the existing
+   migrations, using the Supabase SQL Editor or your normal migration process.
+2. Run `supabase/tests/guest-creation.sql` in the SQL Editor. Test changes roll back.
+3. In Supabase Authentication rate-limit settings, verify the anonymous-sign-in
+   IP limit is enabled. Supabase defaults to 30 requests per IP per hour; lower it
+   if needed. This repository does not change the hosted Auth settings.
+4. Build a new Android APK to include `expo-application`. Keep the same signing
+   key across updates and reinstalls.
+5. On a test phone, create a guest, sign out, and attempt another creation. Repeat
+   after clearing app data and after reinstalling the same signed APK. Creation
+   must remain blocked until the server's cooldown expires. Check that Google
+   sign-in still works.
+
+Apply the database change before distributing the new APK. Old APKs and web/iOS
+clients cannot create new guests because they do not send an Android device ID;
+they can still use Google sign-in. Existing guests start a device cooldown only
+when they next create an account with the updated APK. Existing accounts are not
+retroactively linked to devices.
+
+### Security limits
+
+Android ID normally survives uninstalling and clearing app data, but can change
+after a factory reset, a signing-key change, or a switch of Android user. Modified
+clients can spoof it. This is best-effort abuse prevention, not device attestation.
+The private cooldown table stores a hash instead of the raw ID and does not reset
+when an account is deleted. Reinstalls do not recover the previous guest session.
+Document this abuse-prevention use of device data in your privacy notice before
+distribution. Guest signup fails closed if the status service is unavailable.

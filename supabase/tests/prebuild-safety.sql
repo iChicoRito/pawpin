@@ -1,10 +1,10 @@
 -- Run after 0012_prebuild_safety.sql. All fixtures are rolled back.
 begin;
 
-insert into auth.users (id, is_anonymous) values
-  ('00000000-0000-4000-8000-00000000000a', false),
-  ('00000000-0000-4000-8000-00000000000b', false),
-  ('00000000-0000-4000-8000-00000000000c', true);
+insert into auth.users (id, is_anonymous, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-00000000000a', false, '{}'),
+  ('00000000-0000-4000-8000-00000000000b', false, '{}'),
+  ('00000000-0000-4000-8000-00000000000c', true, '{"guest_device_id":"000000000000000c"}');
 
 set local role authenticated;
 set local request.jwt.claims =

@@ -3,8 +3,8 @@ begin;
 
 -- A guest as the app makes one: anonymous, with a made-up name.
 insert into auth.users (id, is_anonymous, raw_user_meta_data) values
-  ('00000000-0000-4000-8000-00000000000a', true, '{"full_name":"Guest4729"}'),
-  ('00000000-0000-4000-8000-00000000000b', true, '{"full_name":"Guest1111"}');
+  ('00000000-0000-4000-8000-00000000000a', true, '{"full_name":"Guest4729","guest_device_id":"000000000000000a"}'),
+  ('00000000-0000-4000-8000-00000000000b', true, '{"full_name":"Guest1111","guest_device_id":"000000000000000b"}');
 
 do $$
 declare

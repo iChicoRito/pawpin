@@ -19,7 +19,7 @@ test('welcome logo follows theme changes and stays centered without stretching',
     '@/constants/theme': theme,
     '@/hooks/use-color-scheme': { useColorScheme: () => scheme },
     '@/lib/auth': { signInWithGoogle() {} },
-    '@/lib/supabase': { supabase: {} },
+    '@/lib/guest-auth': { signInAsGuest() {}, GuestSignInError: Error },
     '../../assets/DarkMode.svg': 'dark-logo',
     '../../assets/LightMode.svg': 'light-logo',
   });
