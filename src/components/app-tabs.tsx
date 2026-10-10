@@ -1,10 +1,3 @@
-// One file per icon. The package's main entry loads all 12,000 icon files at once, which crashes Metro.
-import Camera01Icon from '@hugeicons/core-free-icons/Camera01Icon';
-import DashboardSquare01Icon from '@hugeicons/core-free-icons/DashboardSquare01Icon';
-import LeftToRightListBulletIcon from '@hugeicons/core-free-icons/LeftToRightListBulletIcon';
-import MapsIcon from '@hugeicons/core-free-icons/MapsIcon';
-import UserIcon from '@hugeicons/core-free-icons/UserIcon';
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
 import { usePathname } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, TabTriggerSlotProps, Tabs } from 'expo-router/ui';
 import { useThemeColor } from 'heroui-native';
@@ -16,6 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
@@ -26,33 +20,51 @@ const ICON_SIZE = 20;
 const LINE_SHARE = 0.6;
 const SWITCH_MS = 240;
 
+const TAB_ICON_PATHS = {
+  map: 'M3 6 8 3v15l-5 3V6Zm7-3 4 3v15l-4-3V3Zm6 3 5-3v15l-5 3V6Z',
+  list: 'M4 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm5 0h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM4 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm5 0h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1ZM4 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm5 0h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z',
+  camera: 'M9 3h6l2 3h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3Zm3 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
+  user: 'M12 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9ZM9 13h6a6 6 0 0 1 6 6v2H3v-2a6 6 0 0 1 6-6Z',
+  dashboard: 'M4 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM4 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z',
+} as const;
+
+type TabIcon = keyof typeof TAB_ICON_PATHS;
+
+function FilledTabIcon({ icon, color }: { icon: TabIcon; color: string }) {
+  return (
+    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" aria-hidden>
+      <Path d={TAB_ICON_PATHS[icon]} fill={color} fillRule="evenodd" />
+    </Svg>
+  );
+}
+
 type Tab = {
   name: string;
   href: '/' | '/list' | '/report' | '/profile';
   label: string;
   accessibilityLabel?: string;
-  icon: IconSvgElement;
+  icon: TabIcon;
 };
 
 const TABS: readonly Tab[] = [
-  { name: 'index', href: '/', label: 'Map', icon: MapsIcon },
-  { name: 'list', href: '/list', label: 'List', icon: LeftToRightListBulletIcon },
+  { name: 'index', href: '/', label: 'Map', icon: 'map' },
+  { name: 'list', href: '/list', label: 'List', icon: 'list' },
   {
     name: 'report',
     href: '/report',
     label: 'Report',
     accessibilityLabel: 'Report a stray',
-    icon: Camera01Icon,
+    icon: 'camera',
   },
-  { name: 'profile', href: '/profile', label: 'Profile', icon: UserIcon },
+  { name: 'profile', href: '/profile', label: 'Profile', icon: 'user' },
 ];
 
 // An admin does not report or rescue. The first two routes are the same ones, and show the
 // admin's own screens (see `(tabs)/index.tsx` and `(tabs)/list.tsx`).
 const ADMIN_TABS: readonly Tab[] = [
-  { name: 'index', href: '/', label: 'Dashboard', icon: DashboardSquare01Icon },
-  { name: 'list', href: '/list', label: 'Reports', icon: LeftToRightListBulletIcon },
-  { name: 'profile', href: '/profile', label: 'Profile', icon: UserIcon },
+  { name: 'index', href: '/', label: 'Dashboard', icon: 'dashboard' },
+  { name: 'list', href: '/list', label: 'Reports', icon: 'list' },
+  { name: 'profile', href: '/profile', label: 'Profile', icon: 'user' },
 ];
 
 // A screen that needs the whole display (the report camera) hides the bar while it is in view.
@@ -152,7 +164,7 @@ function TabBar({ tabs, style, children, ...props }: ViewProps & { tabs: readonl
 type TabButtonProps = TabTriggerSlotProps & {
   label: string;
   accessibilityLabel: string;
-  icon: IconSvgElement;
+  icon: TabIcon;
 };
 
 function TabButton({ label, accessibilityLabel, icon, isFocused, ...props }: TabButtonProps) {
@@ -162,8 +174,7 @@ function TabButton({ label, accessibilityLabel, icon, isFocused, ...props }: Tab
     [isFocused]
   );
 
-  // A muted copy and a heavier accent copy cross-fade. The free icon set has no filled style,
-  // so the selected icon is marked by colour and stroke weight.
+  // Muted and accent copies cross-fade without changing the solid icon's shape.
   const restStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.value }));
   const activeStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 
@@ -176,10 +187,10 @@ function TabButton({ label, accessibilityLabel, icon, isFocused, ...props }: Tab
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
       <View style={styles.icon}>
         <Animated.View style={restStyle}>
-          <HugeiconsIcon icon={icon} size={ICON_SIZE} color={muted} strokeWidth={1.5} />
+          <FilledTabIcon icon={icon} color={muted} />
         </Animated.View>
         <Animated.View style={[StyleSheet.absoluteFill, activeStyle]}>
-          <HugeiconsIcon icon={icon} size={ICON_SIZE} color={accent} strokeWidth={2} />
+          <FilledTabIcon icon={icon} color={accent} />
         </Animated.View>
       </View>
       <View aria-hidden>

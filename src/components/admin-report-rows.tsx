@@ -6,6 +6,7 @@ import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { monthOf } from '@/components/profile-history';
+import { LiveDot } from '@/components/report-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -16,8 +17,7 @@ import { ANIMAL_TYPES, labelFor } from '@/lib/reports';
 /** Same size as the photo on a row of the nearby List. */
 const PHOTO_SIZE = 56;
 
-// A report's status as a chip: a word or two, short enough to sit beside a flag count. Only a
-// report a rescuer is going to is filled, so it stands out down a list; the rest are quiet.
+// Responding uses the nearby list's live indicator; other statuses stay as quiet chips.
 const STATUS_CHIPS: Record<
   string,
   {
@@ -71,9 +71,8 @@ export function AdminReportList({ reports, datedBy, onPress }: AdminReportRowsPr
 }
 
 /**
- * One grouped list of reports as an admin reads them, each row in three steps down: the animal
- * and the time; its status and its flags as chips; what the flags say. A row with no flags is two
- * lines. Where the animal is, and everything else, is on the report's own page.
+ * One grouped list of reports: the animal and time, then status and flag count.
+ * Flag reasons and location are on the report's own page.
  */
 export function AdminReportRows({ reports, datedBy, onPress }: AdminReportRowsProps) {
   const danger = useThemeColor('danger');
@@ -84,7 +83,6 @@ export function AdminReportRows({ reports, datedBy, onPress }: AdminReportRowsPr
         const status = STATUS_CHIPS[report.status] ?? STATUS_CHIPS.closed;
         const age = formatAge(dateOf(report, datedBy));
         const flags = report.flagCount === 1 ? '1 flag' : `${report.flagCount} flags`;
-        const reasons = report.reasons.join(' · ');
         const spoken = [
           animal,
           status.label,
@@ -122,9 +120,18 @@ export function AdminReportRows({ reports, datedBy, onPress }: AdminReportRowsPr
                   </View>
 
                   <View style={styles.chips}>
-                    <Chip size="sm" variant={status.variant} color={status.color}>
-                      {status.label}
-                    </Chip>
+                    {report.status === 'responding' ? (
+                      <View style={styles.responding}>
+                        <View aria-hidden>
+                          <LiveDot />
+                        </View>
+                        <ThemedText type="small">On the way</ThemedText>
+                      </View>
+                    ) : (
+                      <Chip size="sm" variant={status.variant} color={status.color}>
+                        {status.label}
+                      </Chip>
+                    )}
                     {report.flagCount > 0 && (
                       <Chip size="sm" variant="soft" color="danger">
                         <HugeiconsIcon icon={Flag02Icon} size={12} color={danger} strokeWidth={2} />
@@ -133,13 +140,6 @@ export function AdminReportRows({ reports, datedBy, onPress }: AdminReportRowsPr
                     )}
                   </View>
 
-                  {/* What users said is wrong, in the page's own text color: it is what an admin
-                      opens the report for. */}
-                  {report.flagCount > 0 && (
-                    <ThemedText type="small" numberOfLines={2} style={styles.reasons}>
-                      {reasons}
-                    </ThemedText>
-                  )}
                 </View>
               </ListGroup.ItemContent>
             </ListGroup.Item>
@@ -185,13 +185,15 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontVariant: ['tabular-nums'],
   },
+  responding: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.one + Spacing.half,
-  },
-  reasons: {
-    fontWeight: 400,
   },
 });

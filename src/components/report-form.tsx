@@ -18,15 +18,15 @@ import {
   useThemeColor,
   useToast,
 } from 'heroui-native';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
-  ScrollView,
   StyleSheet,
   Text,
   useColorScheme,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -85,6 +85,15 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
   const isSending = status === 'sending';
   const { toast } = useToast();
   const scroll = useRef<ScrollView>(null);
+  const mapGesture = useMemo(
+    () => Gesture.Native()
+      .shouldActivateOnStart(true)
+      .disallowInterruption(true)
+      .shouldCancelWhenOutside(false)
+      // eslint-disable-next-line react-hooks/refs -- Gesture Handler stores this ref without reading current.
+      .blocksExternalGesture(scroll),
+    [scroll],
+  );
   // How far down the page the first card starts. The map above it scrolls with the page.
   const firstCardY = useRef(0);
   // Problems are worked out all the time but only shown after the first press on Submit.
@@ -221,41 +230,43 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
               </ThemedText>
             </ThemedView>
           ) : (
-            <View style={[styles.map, { borderColor: border }]}>
-              <Map
-                style={styles.container}
-                mapStyle={mapStyleFor(isDark)}
-                compass={false}
-                logo={false}
-                touchRotate={false}
-                touchPitch={false}
-                onDidFailLoadingMap={() => setMapFailed(true)}
-                onDidFinishLoadingMap={() => setIsMapReady(true)}
-                onRegionDidChange={(event) => {
-                  const { center, userInteraction } = event.nativeEvent;
-                  // The map also reports its own first placement; only the reporter's moves count.
-                  if (userInteraction) update({ longitude: center[0], latitude: center[1] });
-                }}>
-                {/* The map library takes longitude first. */}
-                <Camera
-                  initialViewState={{
-                    center: [fromCamera.longitude, fromCamera.latitude],
-                    zoom: STREET_ZOOM,
-                  }}
-                />
-              </Map>
-              {/* Covers the empty grey box until the streets are drawn. */}
-              {!isMapReady && <Skeleton className="absolute inset-0" />}
-              {/* The pin never moves; the map slides under it. Its tip marks the exact middle. */}
-              <View pointerEvents="none" style={styles.pinLayer}>
-                <View style={styles.pin}>
-                  <View style={styles.pinHead} />
-                  {/* The stem is dark on the light map and white on the dark one. */}
-                  <View style={[styles.pinStem, { backgroundColor: mapInkFor(isDark).ink }]} />
+            <GestureDetector gesture={mapGesture}>
+              <View collapsable={false} style={[styles.map, { borderColor: border }]}>
+                <Map
+                  style={styles.container}
+                  mapStyle={mapStyleFor(isDark)}
+                  compass={false}
+                  logo={false}
+                  touchRotate={false}
+                  touchPitch={false}
+                  onDidFailLoadingMap={() => setMapFailed(true)}
+                  onDidFinishLoadingMap={() => setIsMapReady(true)}
+                  onRegionDidChange={(event) => {
+                    const { center, userInteraction } = event.nativeEvent;
+                    // The map also reports its own first placement; only the reporter's moves count.
+                    if (userInteraction) update({ longitude: center[0], latitude: center[1] });
+                  }}>
+                  {/* The map library takes longitude first. */}
+                  <Camera
+                    initialViewState={{
+                      center: [fromCamera.longitude, fromCamera.latitude],
+                      zoom: STREET_ZOOM,
+                    }}
+                  />
+                </Map>
+                {/* Covers the empty grey box until the streets are drawn. */}
+                {!isMapReady && <Skeleton className="absolute inset-0" />}
+                {/* The pin never moves; the map slides under it. Its tip marks the exact middle. */}
+                <View pointerEvents="none" style={styles.pinLayer}>
+                  <View style={styles.pin}>
+                    <View style={styles.pinHead} />
+                    {/* The stem is dark on the light map and white on the dark one. */}
+                    <View style={[styles.pinStem, { backgroundColor: mapInkFor(isDark).ink }]} />
+                  </View>
                 </View>
+                <Text style={styles.credit}>© OpenStreetMap contributors</Text>
               </View>
-              <Text style={styles.credit}>© OpenStreetMap contributors</Text>
-            </View>
+            </GestureDetector>
           )}
 
           <View

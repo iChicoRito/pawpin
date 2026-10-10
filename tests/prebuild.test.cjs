@@ -48,9 +48,9 @@ test('camera shows location failure instead of rejecting shutter handler', async
   assert.ok(findElement(screen.render(), (node) => node.props?.role === 'alert'));
 });
 
-test('nearby list gives FlatList individual reports and stable report IDs', () => {
-  const reports = Array.from({ length: 300 }, (_, id) => ({ id: String(id), reporterId: 'user' }));
+function nearbyListScreen(reports, session = { user: { id: 'user' } }) {
   const state = hooks();
+  const searched = [];
   const screen = loadSource('src/app/(tabs)/list.tsx', {
     '@hugeicons/core-free-icons/MapsSearchIcon': {}, '@hugeicons/react-native': { HugeiconsIcon: 'Icon' },
     'expo-router': { useIsFocused: () => true, useRouter: () => ({ push() {} }) },
@@ -60,21 +60,61 @@ test('nearby list gives FlatList individual reports and stable report IDs', () =
     '@/components/list-filter': { ListFilter: 'ListFilter' },
     '@/components/report-card': { ReportListSkeleton: 'Skeleton', ReportRow: 'ReportRow', ReportList: 'ReportList' },
     '@/components/themed-text': themed, '@/components/themed-view': themed,
-    '@/constants/theme': theme, '@/hooks/use-nearby-reports': { useNearbyReports: () => ({ reports, radiusM: 5000, status: 'ready' }) },
-    '@/hooks/use-session': { useSession: () => ({ session: { user: { id: 'user' } } }) },
-    '@/lib/nearby': { RADIUS_CHOICES: [{ value: 5000, label: '5 km' }] },
+    '@/constants/theme': theme, '@/hooks/use-nearby-reports': { useNearbyReports: () => ({
+      reports, radiusM: 5000, status: 'ready', failure: null, refresh: async () => {},
+      setRadius: (value) => searched.push(value),
+    }) },
+    '@/hooks/use-session': { useSession: () => ({ session }) },
+    '@/lib/nearby': { RADIUS_CHOICES: [{ value: 5000, label: '5 km' }, { value: 10000, label: '10 km' }] },
   }, ['NearbyList']);
-  const list = findElement(state.render(screen.__test.NearbyList), (node) => node.type === 'FlatList');
+  return {
+    render: () => findElement(state.render(screen.__test.NearbyList), (node) => node.type === 'FlatList'),
+    searched,
+  };
+}
+
+test('nearby list gives FlatList individual reports and stable report IDs', () => {
+  const reports = Array.from({ length: 300 }, (_, id) => ({ id: String(id), reporterId: 'other-user' }));
+  const list = nearbyListScreen(reports).render();
   assert.equal(list.props.data.length, 300);
   assert.equal(list.props.keyExtractor(list.props.data[42]), '42');
   assert.equal(list.props.renderItem({ item: reports[42], index: 42 }).props.report.id, '42');
-  assert.equal(list.props.ItemSeparatorComponent().props.style.height, 8, 'cards need small gaps without divider lines');
+  assert.equal(list.props.ItemSeparatorComponent().props.style.height, 8, 'compact cards need small gaps without divider lines');
+});
+
+test('nearby list excludes the current reporter without changing shared reports or their order', () => {
+  const reports = [
+    { id: 'mine', reporterId: 'user' },
+    { id: 'near', reporterId: 'other-user' },
+    { id: 'mine-too', reporterId: 'user' },
+    { id: 'far', reporterId: 'third-user' },
+  ];
+  const session = { user: { id: 'user' } };
+  const screen = nearbyListScreen(reports, session);
+  assert.deepEqual(screen.render().props.data.map((report) => report.id), ['near', 'far']);
+  assert.deepEqual(reports.map((report) => report.id), ['mine', 'near', 'mine-too', 'far']);
+  session.user.id = 'other-user';
+  assert.deepEqual(screen.render().props.data.map((report) => report.id), ['mine', 'mine-too', 'far']);
+});
+
+test('own reports alone show an empty list with a wider search, never Show all reports', () => {
+  const screen = nearbyListScreen([{ id: 'mine', reporterId: 'user' }]);
+  const list = screen.render();
+  assert.equal(list.props.data.length, 0);
+  const footer = list.props.ListFooterComponent;
+  assert.ok(footer, 'excluded own reports must not leave a blank list');
+  assert.equal(findElement(footer, (node) => node.props.children === 'Show all reports'), undefined);
+  const wider = findElement(footer, (node) => Array.isArray(node.props.children) && node.props.children[0] === 'Search within ');
+  assert.ok(wider, 'empty others-only list must still offer a wider search');
+  wider.props.onPress();
+  assert.deepEqual(screen.searched, [10000]);
 });
 
 function formScreen(reportApi) {
   const state = hooks();
   const module = loadSource('src/components/report-form.tsx', {
     '@maplibre/maplibre-react-native': { Camera: 'Camera', Map: 'Map' },
+    'react-native-gesture-handler': require('./load-source.cjs').gestureHandler,
     'heroui-native': ui, react: state.react, 'react-native': native,
     'react-native-safe-area-context': insets,
     '@/components/drawer-backdrop': { DrawerSelectOverlay: 'DrawerSelectOverlay' },

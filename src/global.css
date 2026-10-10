@@ -2,6 +2,36 @@
 @import 'uniwind';
 @import 'heroui-native/styles';
 
+@layer theme {
+  :root {
+    @variant light {
+      --accent: #F27D18;
+      --accent-foreground: #FFFFFF;
+      --accent-soft-foreground: #994600;
+    }
+
+    @variant dark {
+      --accent: #F27D18;
+      --accent-foreground: #FFFFFF;
+      --accent-soft-foreground: #F27D18;
+    }
+  }
+}
+
+@theme inline {
+  --color-accent-soft-foreground: var(--accent-soft-foreground);
+}
+
+@layer components {
+  .button__label--variant-primary {
+    color: var(--snow);
+  }
+
+  .button__label--variant-secondary {
+    color: var(--accent);
+  }
+}
+
 :root {
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,

@@ -78,7 +78,7 @@ export default function AlertsScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.four }]}>
         <Section title="Notifications">
-          <Card variant="default" style={styles.surface}>
+          <ThemedView type="backgroundElement" style={styles.permissionCard}>
             {permission ? (
               <PermissionRow
                 icon={Notification01Icon}
@@ -93,7 +93,7 @@ export default function AlertsScreen() {
                 <Spinner size="sm" />
               </View>
             )}
-          </Card>
+          </ThemedView>
         </Section>
 
         <Section title="Alert distance">
@@ -193,6 +193,10 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.two,
+  },
+  permissionCard: {
+    borderRadius: Spacing.four,
+    overflow: 'hidden',
   },
   // Surface and corner come from HeroUI Card. The rows inside bring their own padding.
   surface: {

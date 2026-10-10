@@ -4,7 +4,6 @@ import Flag02Icon from '@hugeicons/core-free-icons/Flag02Icon';
 import HourglassIcon from '@hugeicons/core-free-icons/HourglassIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Route01Icon from '@hugeicons/core-free-icons/Route01Icon';
-import { HugeiconsIcon } from '@hugeicons/react-native';
 import { useIsFocused, useRouter } from 'expo-router';
 import { Button, Typography, useThemeColor } from 'heroui-native';
 import { useEffect, useState } from 'react';
@@ -245,12 +244,18 @@ function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }:
         title="How reports ended"
         summary={
           finished === 0
-            ? 'None has ended yet'
+            ? undefined
             : `${Math.round((overview.rescued / finished) * 100)}% rescued, of ${finished} finished`
         }
         hint="Opens the finished reports"
         onPress={() => onOpen('finished')}>
-        {finished > 0 && (
+        {finished === 0 ? (
+          <Notice
+            icon={CheckmarkCircle02Icon}
+            title="No finished reports yet"
+            text="Rescue outcomes will appear here when reports are marked rescued, not found, or closed."
+          />
+        ) : (
           <ShareBar
             shares={[
               { label: 'Rescued', count: overview.rescued, color: OUTCOME_COLORS.rescued },
@@ -265,10 +270,16 @@ function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }:
         title="Urgency of active reports"
         summary={
           active === 0
-            ? 'No report is active right now'
+            ? undefined
             : `${stats.urgency.critical} of ${active} critical`
         }>
-        {active > 0 && (
+        {active === 0 ? (
+          <Notice
+            icon={AlertCircleIcon}
+            title="No active reports"
+            text="Urgency levels will appear here when reports are waiting for help or a rescuer is on the way."
+          />
+        ) : (
           <Ring
             unit={active === 1 ? 'active report' : 'active reports'}
             shares={URGENCIES.map((urgency) => ({
@@ -284,24 +295,36 @@ function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }:
         title="Time until a rescuer is on the way"
         summary={
           stats.responseMinutes === null
-            ? 'No rescuer has gone yet'
+            ? undefined
             : formatWait(stats.responseMinutes)
         }>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
-          {stats.responseMinutes === null
-            ? 'Shown once a rescuer has gone to a report from the last 30 days.'
-            : 'Half of the reports a rescuer went to, in the last 30 days, were taken within this time.'}
-        </ThemedText>
+        {stats.responseMinutes === null ? (
+          <Notice
+            icon={Route01Icon}
+            title="No response times yet"
+            text="Typical response time will appear here once a rescuer responds to a report from the last 30 days."
+          />
+        ) : (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
+            Half of the reports a rescuer went to, in the last 30 days, were taken within this time.
+          </ThemedText>
+        )}
       </ChartCard>
 
       <ChartCard
         title="Why reports are flagged"
         summary={
           flags === 0
-            ? 'No report has been flagged'
+            ? undefined
             : `${flags === 1 ? '1 flag' : `${flags} flags`}, most for "${stats.flagReasons[0].label}"`
         }>
-        {flags > 0 && (
+        {flags === 0 ? (
+          <Notice
+            icon={Flag02Icon}
+            title="No flags to review"
+            text="Reasons will appear here when someone flags a report for review."
+          />
+        ) : (
           <Tiles
             // Each reason keeps its color wherever it ranks: the order is the app's own list.
             shares={stats.flagReasons.map((reason) => ({
@@ -315,10 +338,14 @@ function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }:
         )}
       </ChartCard>
 
-      <ChartCard
-        title="Animals reported"
-        summary={reported === 0 ? 'No report has been sent yet' : undefined}>
-        {reported > 0 && (
+      <ChartCard title="Animals reported">
+        {reported === 0 ? (
+          <Notice
+            icon={Megaphone01Icon}
+            title="No animals reported yet"
+            text="A breakdown of dogs, cats, and other animals will appear here as reports are submitted."
+          />
+        ) : (
           <Columns
             rows={stats.animals.map((animal) => ({
               // Dog, Cat, Other: the same three words as on the report form.
@@ -334,13 +361,16 @@ function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }:
 
 /** In place of the flagged rows when there are none: said plainly, so the gap is not a question. */
 function AllClear() {
-  const success = useThemeColor('success');
+  const [success, successBackground] = useThemeColor(['success-soft-foreground', 'success-soft']);
   return (
     <ThemedView type="backgroundElement" style={styles.clear}>
-      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={20} color={success} />
-      <ThemedText type="small" style={styles.clearText}>
-        No active report is flagged. Nothing needs you right now.
-      </ThemedText>
+      <Notice
+        icon={CheckmarkCircle02Icon}
+        iconColor={success}
+        iconBackgroundColor={successBackground}
+        title="No flagged reports"
+        text="Active reports flagged by users will appear here for review."
+      />
     </ThemedView>
   );
 }
@@ -379,14 +409,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   clear: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
     padding: Spacing.three,
     borderRadius: Spacing.three,
-  },
-  clearText: {
-    flex: 1,
-    fontWeight: 400,
   },
 });

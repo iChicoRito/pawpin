@@ -3,7 +3,6 @@ import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import ViewIcon from '@hugeicons/core-free-icons/ViewIcon';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
-import Constants from 'expo-constants';
 import { Avatar, Button, Dialog, ListGroup, Separator, useThemeColor } from 'heroui-native';
 import { Fragment, useState, type PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -147,10 +146,6 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* The quietest line on the page: which build this is, for when something is reported. */}
-        <ThemedText type="small" themeColor="textSecondary" style={styles.version}>
-          PawPin {Constants.expoConfig?.version ?? ''}
-        </ThemedText>
       </ScrollView>
 
       {/* Signing out as a guest loses the account for good, so it is asked in a dialog. */}
@@ -229,8 +224,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
     marginTop: Spacing.four,
-  },
-  version: {
-    textAlign: 'center',
   },
 });

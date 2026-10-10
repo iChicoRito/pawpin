@@ -39,6 +39,7 @@ function hooks(initialStates = [], initialRefs = []) {
         return refs[index] ?? (refs[index] = { current: initial });
       },
       useEffect() {},
+      useMemo: (factory) => factory(),
     },
     render(component, props) {
       stateIndex = 0;
@@ -76,4 +77,17 @@ const native = {
 };
 const theme = { Spacing: { half: 2, one: 4, two: 8, three: 12, four: 16, five: 20 }, MaxContentWidth: 600 };
 
-module.exports = { loadSource, hooks, findElement, ui, native, theme };
+const { BaseGesture } = loadSource('node_modules/react-native-gesture-handler/src/handlers/gestures/gesture.ts', {
+  '../getNextHandlerTag': { getNextHandlerTag: () => 1 },
+  '../../utils': { isRemoteDebuggingEnabled: () => false },
+});
+const { NativeGesture } = loadSource('node_modules/react-native-gesture-handler/src/handlers/gestures/nativeGesture.ts', {
+  './gesture': { BaseGesture },
+});
+const gestureHandler = {
+  ScrollView: 'GestureScrollView',
+  GestureDetector: 'GestureDetector',
+  Gesture: { Native: () => new NativeGesture() },
+};
+
+module.exports = { loadSource, hooks, findElement, ui, native, theme, gestureHandler };

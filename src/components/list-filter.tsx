@@ -1,6 +1,6 @@
 import FilterHorizontalIcon from '@hugeicons/core-free-icons/FilterHorizontalIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { BottomSheet, Button, Slider, Tabs, useBottomSheet, useThemeColor } from 'heroui-native';
+import { BottomSheet, Button, Slider, useBottomSheet, useThemeColor } from 'heroui-native';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -10,25 +10,8 @@ import { Spacing } from '@/constants/theme';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
 import { RADIUS_CHOICES } from '@/lib/nearby';
 
-/** Whose reports the List shows. */
-export type ReportOwner = 'all' | 'mine' | 'others';
-
-export const REPORT_OWNERS: { value: ReportOwner; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'mine', label: 'Mine' },
-  { value: 'others', label: 'Others' },
-];
-
-type ListFilterProps = {
-  owner: ReportOwner;
-  onOwnerChange: (owner: ReportOwner) => void;
-};
-
-/**
- * The List's filter: a button, and the drawer it opens. Whose reports to show is the List's own
- * choice. The distance is the one shared with the Map, so changing it here changes it there.
- */
-export function ListFilter({ owner, onOwnerChange }: ListFilterProps) {
+/** Distance is shared with the Map, so changing it here changes it there. */
+export function ListFilter() {
   const { radiusM, setRadius } = useNearbyReports();
   // Match the icon to the tertiary button's foreground label.
   const iconColor = useThemeColor('default-foreground');
@@ -57,28 +40,6 @@ export function ListFilter({ owner, onOwnerChange }: ListFilterProps) {
         <BottomSheet.Content>
           <View style={styles.content}>
             <BottomSheet.Title>Filter</BottomSheet.Title>
-
-            <View style={styles.group}>
-              {/* Medium weight, like a form label: it names the control under it. */}
-              <ThemedText type="small" role="heading" themeColor="textSecondary">
-                Reports from
-              </ThemedText>
-              <Tabs
-                aria-label="Whose reports to show"
-                value={owner}
-                onValueChange={(value) =>
-                  onOwnerChange(REPORT_OWNERS.find((option) => option.value === value)?.value ?? 'all')
-                }>
-                <Tabs.List className="self-stretch">
-                  <Tabs.Indicator />
-                  {REPORT_OWNERS.map((option) => (
-                    <Tabs.Trigger key={option.value} value={option.value} className="flex-1">
-                      <Tabs.Label>{option.label}</Tabs.Label>
-                    </Tabs.Trigger>
-                  ))}
-                </Tabs.List>
-              </Tabs>
-            </View>
 
             <View style={styles.group}>
               <View style={styles.distanceHeading}>

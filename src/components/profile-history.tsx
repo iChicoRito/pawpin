@@ -29,15 +29,15 @@ type HistoryListProps = {
   kind: 'reports' | 'rescues';
   /** Newest first. */
   reports: HistoryReport[];
+  onOpen?: (id: string) => void;
 };
 
 /**
  * A person's own history, month by month: reports they sent, or animals they rescued. Each month
  * is one HeroUI ListGroup, the same grouped list as on the "Report sent" screen: the photo first,
- * the name and one line under it, the time at the end. Rows are to read, not to press: the report
- * page shows only reports that are nearby and still active.
+ * the name and one line under it, the time at the end. A supplied action opens the report by ID.
  */
-export function HistoryList({ kind, reports }: HistoryListProps) {
+export function HistoryList({ kind, reports, onOpen }: HistoryListProps) {
   // Already newest first, so the months come out in order and each row joins the last month seen.
   const months: { title: string; rows: HistoryReport[] }[] = [];
   for (const report of reports) {
@@ -64,9 +64,11 @@ export function HistoryList({ kind, reports }: HistoryListProps) {
               return (
                 <Fragment key={report.id}>
                   {index > 0 && <Separator className="mx-4" />}
-                  {/* A row to read, not to press. */}
                   <ListGroup.Item
-                    pointerEvents="none"
+                    role={onOpen ? 'button' : undefined}
+                    pointerEvents={onOpen ? 'auto' : 'none'}
+                    onPress={onOpen ? () => onOpen(report.id) : undefined}
+                    accessibilityHint={onOpen ? 'Opens report details' : undefined}
                     accessible
                     aria-label={
                       kind === 'rescues'
@@ -87,7 +89,6 @@ export function HistoryList({ kind, reports }: HistoryListProps) {
                         {kind === 'rescues' ? landmark || 'No landmark given' : status}
                       </ListGroup.ItemDescription>
                     </ListGroup.ItemContent>
-                    {/* The time, where a row that opens something would have its arrow. */}
                     <ListGroup.ItemSuffix>
                       <ThemedText themeColor="textSecondary" style={styles.age}>
                         {age}

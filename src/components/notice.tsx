@@ -8,6 +8,8 @@ import { Spacing } from '@/constants/theme';
 
 type NoticeProps = {
   icon: IconSvgElement;
+  iconColor?: string;
+  iconBackgroundColor?: string;
   title: string;
   text: string;
   /** Left out when there is nothing to do about it. */
@@ -18,12 +20,23 @@ type NoticeProps = {
 };
 
 /** An icon, a line, a sentence, and one thing to do. For an empty list and for a failed read. */
-export function Notice({ icon, title, text, action, onAction, isAlert = false }: NoticeProps) {
+export function Notice({
+  icon,
+  iconColor,
+  iconBackgroundColor,
+  title,
+  text,
+  action,
+  onAction,
+  isAlert = false,
+}: NoticeProps) {
   const muted = useThemeColor('muted');
   return (
     <View role={isAlert ? 'alert' : undefined} style={styles.notice}>
-      <ThemedView type="backgroundElement" style={styles.icon}>
-        <HugeiconsIcon icon={icon} size={28} color={muted} />
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.icon, iconBackgroundColor ? { backgroundColor: iconBackgroundColor } : undefined]}>
+        <HugeiconsIcon icon={icon} size={28} color={iconColor ?? muted} />
       </ThemedView>
       <View style={styles.text}>
         <ThemedText role="heading" style={styles.title}>

@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AdminReports } from '@/components/admin-reports';
 import { LocationGate } from '@/components/location-gate';
-import { ListFilter, type ReportOwner } from '@/components/list-filter';
+import { ListFilter } from '@/components/list-filter';
 import { ReportRow, ReportListSkeleton } from '@/components/report-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -18,12 +18,7 @@ import { useSession } from '@/hooks/use-session';
 import { RADIUS_CHOICES } from '@/lib/nearby';
 
 const TITLE = 'Nearby strays';
-const OWNER_SUMMARY: Record<ReportOwner, string> = {
-  all: 'All reports',
-  mine: 'Your reports',
-  others: 'Reports from others',
-};
-/** About one screen of rows, so the page does not jump much when the real ones arrive. */
+/** About one screen of compact cards. */
 const SKELETON_CARDS = 5;
 
 // Phones only. Browsers get list.web.tsx.
@@ -46,12 +41,8 @@ function NearbyList() {
   const muted = useThemeColor('muted');
   const [isPulling, setIsPulling] = useState(false);
   const { session } = useSession();
-  // Whose reports to show. Kept while the app is open, like the distance.
-  const [owner, setOwner] = useState<ReportOwner>('all');
-  const shown =
-    owner === 'all'
-      ? reports
-      : reports.filter((report) => (report.reporterId === session?.user.id) === (owner === 'mine'));
+  // Only this tab excludes own reports; the Map keeps the shared nearby data.
+  const shown = reports.filter((report) => report.reporterId !== session?.user.id);
 
   // Tabs stay mounted, so this runs each time the List comes back into view, not only once.
   useEffect(() => {
@@ -103,10 +94,10 @@ function NearbyList() {
                   themeColor="textSecondary"
                   aria-live="polite"
                   style={styles.regular}>
-                  {OWNER_SUMMARY[owner]} · Within {radius}
+                  Reports from others · Within {radius}
                 </ThemedText>
               </View>
-              <ListFilter owner={owner} onOwnerChange={setOwner} />
+              <ListFilter />
             </View>
             {failure && !isLoading && (
               <View style={styles.failure}>
@@ -144,25 +135,15 @@ function NearbyList() {
               </ThemedView>
               <View style={styles.emptyText}>
                 <ThemedText role="heading" style={styles.emptyTitle}>
-                  {owner === 'mine'
-                    ? `None of your reports within ${radius}`
-                    : owner === 'others'
-                      ? `No reports from others within ${radius}`
-                      : `No strays within ${radius}`}
+                  {`No reports from others within ${radius}`}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-                  {reports.length > 0
-                    ? 'There are reports nearby that this filter leaves out.'
-                    : wider
-                      ? 'Nobody has reported a stray this close to you. Look further out, or pull down to check again.'
-                      : 'Nobody has reported a stray this far out. Pull down to check again.'}
+                  {wider
+                    ? 'Your reports are in Profile. Look further out, or pull down to check for reports from others.'
+                    : 'Your reports are in Profile. Pull down to check for reports from others.'}
                 </ThemedText>
               </View>
-              {reports.length > 0 ? (
-                <Button variant="secondary" onPress={() => setOwner('all')}>
-                  Show all reports
-                </Button>
-              ) : wider ? (
+              {wider ? (
                 <Button variant="secondary" onPress={() => setRadius(wider.value)}>
                   Search within {wider.label}
                 </Button>

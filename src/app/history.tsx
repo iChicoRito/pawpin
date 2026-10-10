@@ -1,7 +1,7 @@
 import AlertCircleIcon from '@hugeicons/core-free-icons/AlertCircleIcon';
 import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +46,7 @@ const KINDS = {
 export default function HistoryScreen() {
   const { kind } = useLocalSearchParams<{ kind: string }>();
   const router = useRouter();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -58,7 +59,7 @@ export default function HistoryScreen() {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isFocused) return;
     let isGone = false;
     list
       .fetch(userId)
@@ -75,7 +76,7 @@ export default function HistoryScreen() {
     return () => {
       isGone = true;
     };
-  }, [userId, list, attempt]);
+  }, [userId, list, attempt, isFocused]);
 
   // Nothing to list: the message sits in the middle of the screen instead of under a heading.
   const isCentered = reports === null || reports?.length === 0;
@@ -137,7 +138,11 @@ export default function HistoryScreen() {
                 </ThemedText>
               )}
             </View>
-            <HistoryList kind={list.kind} reports={reports} />
+            <HistoryList
+              kind={list.kind}
+              reports={reports}
+              onOpen={(id) => router.push({ pathname: '/report/[id]', params: { id } })}
+            />
           </>
         )}
       </ScrollView>

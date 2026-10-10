@@ -67,6 +67,7 @@ function drawerState(readProps) {
 
 test('list filter can reopen after swipe callback captured while closed', () => {
   const state = hooks();
+  const searched = [];
   const BottomSheet = sheetParts();
   let sheetContext;
   const { ListFilter, __test } = loadSource('src/components/list-filter.tsx', {
@@ -78,10 +79,14 @@ test('list filter can reopen after swipe callback captured while closed', () => 
     '@/components/themed-text': { ThemedText: 'Text' },
     '@/components/drawer-backdrop': { DrawerBottomSheetOverlay: 'Backdrop' },
     '@/constants/theme': theme,
-    '@/hooks/use-nearby-reports': { useNearbyReports: () => ({ radiusM: 5000, setRadius() {} }) },
-    '@/lib/nearby': { RADIUS_CHOICES: [{ value: 5000, label: '5 km' }] },
+    '@/hooks/use-nearby-reports': { useNearbyReports: () => ({ radiusM: 5000, setRadius(value) { searched.push(value); } }) },
+    '@/lib/nearby': { RADIUS_CHOICES: [{ value: 5000, label: '5 km' }, { value: 10000, label: '10 km' }] },
   }, ['FilterDone']);
-  const render = () => state.render(ListFilter, { owner: 'all', onOwnerChange() {} });
+  const render = () => state.render(ListFilter, {});
+  assert.equal(findElement(render(), (node) => node.props?.['aria-label'] === 'Whose reports to show'), undefined);
+  const distance = findElement(render(), (node) => node.props?.['aria-label'] === 'Search distance');
+  distance.props.onChangeEnd(1);
+  assert.deepEqual(searched, [10000]);
   const read = drawerState(() => findElement(render(), (node) => node.type === BottomSheet).props);
   const [, staleSwipeClose] = read();
   const trigger = findElement(render(), (node) => node.type === 'SheetTrigger');

@@ -4,13 +4,6 @@ import { Uniwind } from 'uniwind';
 
 export type Appearance = 'system' | 'light' | 'dark';
 
-// The hint is the one line under each choice where it is picked.
-export const APPEARANCES: readonly { value: Appearance; label: string; hint: string }[] = [
-  { value: 'system', label: 'System', hint: 'Follows your phone’s setting.' },
-  { value: 'light', label: 'Light', hint: 'Bright. Best in daylight.' },
-  { value: 'dark', label: 'Dark', hint: 'Dim. Easier on the eyes at night.' },
-];
-
 const APPEARANCE_KEY = 'pawpin.appearance';
 
 // The choice lives here, outside any screen, so it can be applied before the first screen draws.

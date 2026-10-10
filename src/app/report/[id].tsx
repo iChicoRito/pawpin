@@ -53,8 +53,8 @@ import { svg as wazeLogo } from 'thesvg/waze';
 import { BrandIcon } from '@/components/brand-icon';
 import { AppDialogOverlay, PageVeil } from '@/components/drawer-backdrop';
 import { GoogleSignInDialog } from '@/components/google-sign-in-dialog';
-import { URGENCY_CHIP } from '@/components/report-card';
 import { ReportPlaceMap } from '@/components/report-place-map';
+import { ReportUrgencyCard } from '@/components/report-urgency';
 import { ToastIcon } from '@/components/report-sent';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -73,7 +73,7 @@ import {
   type FlagReason,
 } from '@/lib/flags';
 import { formatAge, formatDistance, initialsOf } from '@/lib/format';
-import { fetchReport, URGENCY_COLORS, type NearbyReport, type ReportDetail } from '@/lib/nearby';
+import { fetchReport, type NearbyReport, type ReportDetail } from '@/lib/nearby';
 import {
   ANIMAL_TYPES,
   COLORS,
@@ -81,7 +81,6 @@ import {
   labelFor,
   REPORT_STATUSES,
   SIZES,
-  URGENCIES,
   type ReportPlace,
 } from '@/lib/reports';
 import { supabase } from '@/lib/supabase';
@@ -233,7 +232,6 @@ export default function ReportDetailScreen() {
   }
 
   const animal = labelFor(ANIMAL_TYPES, report.animalType) || 'Animal';
-  const urgency = labelFor(URGENCIES, report.urgency);
   const isMine = report.reporterId === session?.user.id;
   const isResponding = report.status === 'responding';
   // Rescued, not found, or closed: there is nothing left to do here but read.
@@ -446,7 +444,7 @@ export default function ReportDetailScreen() {
           )}
 
           <View style={styles.body}>
-            {/* What it is, how urgent, how far, how long ago: the decision, before any detail. */}
+            {/* What it is, how far, how long ago. Urgency is in About the animal. */}
             <View style={styles.summary}>
               <View style={styles.summaryText}>
                 <ThemedText role="heading" style={styles.animal}>
@@ -464,25 +462,24 @@ export default function ReportDetailScreen() {
                   </Chip>
                 )}
               </View>
-              <View style={styles.chips}>
-                <Chip variant="secondary" size="sm" color={URGENCY_CHIP[report.urgency]}>
-                  {urgency}
-                </Chip>
-                {isResponding && (
-                  <Chip variant="secondary" size="sm" color="success">
-                    {isMyClaim ? 'You are on the way' : 'Someone is on the way'}
-                  </Chip>
-                )}
-                {/* How it ended. Green only for a rescue. */}
-                {hasEnded && (
-                  <Chip
-                    variant="secondary"
-                    size="sm"
-                    color={report.status === 'rescued' ? 'success' : 'default'}>
-                    {labelFor(REPORT_STATUSES, report.status)}
-                  </Chip>
-                )}
-              </View>
+              {(isResponding || hasEnded) && (
+                <View style={styles.chips}>
+                  {isResponding && (
+                    <Chip variant="secondary" size="sm" color="success">
+                      {isMyClaim ? 'You are on the way' : 'Someone is on the way'}
+                    </Chip>
+                  )}
+                  {/* How it ended. Green only for a rescue. */}
+                  {hasEnded && (
+                    <Chip
+                      variant="secondary"
+                      size="sm"
+                      color={report.status === 'rescued' ? 'success' : 'default'}>
+                      {labelFor(REPORT_STATUSES, report.status)}
+                    </Chip>
+                  )}
+                </View>
+              )}
             </View>
 
             {/* For an admin only, and first under the summary: what users said is wrong with this
@@ -533,30 +530,19 @@ export default function ReportDetailScreen() {
                   />
                   {report.landmark && (
                     <View style={styles.place}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Landmark
+                      </ThemedText>
                       <ThemedText style={styles.landmark}>{report.landmark}</ThemedText>
                     </View>
                   )}
                 </Section>
 
                 <Section title="About the animal">
-                  {/* How urgent, in the reporter's own choice of words, with what that choice means. */}
-                  <ThemedView type="backgroundElement" style={[styles.tile, styles.urgency]}>
-                    <View
-                      style={[
-                        styles.urgencyDot,
-                        { backgroundColor: URGENCY_COLORS[report.urgency] },
-                      ]}
-                    />
-                    <View style={styles.urgencyText}>
-                      <ThemedText style={styles.urgencyLabel}>{urgency}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
-                        {URGENCIES.find((option) => option.value === report.urgency)?.hint}
-                      </ThemedText>
-                    </View>
-                  </ThemedView>
-
                   {/* One row per fact, in the same grouped list as the List tab and Settings. */}
                   <ListGroup>
+                    <ReportUrgencyCard urgency={report.urgency} />
+                    <Separator className="mx-4" />
                     {details.map((detail, index) => (
                       <Fragment key={detail.label}>
                         {index > 0 && <Separator className="mx-4" />}
@@ -593,7 +579,7 @@ export default function ReportDetailScreen() {
                     onOpenChange={(open) => setOpenSheet(open ? 'close' : null)}
                     style={!isMyClaim && styles.mainAction}>
                     <Menu.Trigger asChild>
-                      <Button variant="danger-soft" isDisabled={busy !== null}>
+                      <Button variant="danger" isDisabled={busy !== null}>
                         {busy === 'close' || busy === 'close_rescued' ? 'Closing…' : 'Close report'}
                       </Button>
                     </Menu.Trigger>
@@ -668,7 +654,7 @@ export default function ReportDetailScreen() {
                     down, whoever sent it and whoever is on the way. */}
                 {isAdmin && !isMine && !isMyClaim && (
                   <Button
-                    variant="danger-soft"
+                    variant="danger"
                     style={styles.mainAction}
                     isDisabled={busy !== null}
                     onPress={() => askFirst('admin_close')}>
@@ -1237,33 +1223,6 @@ const styles = StyleSheet.create({
   },
   // What a rescuer looks for on arrival, so it carries a little more weight than body text.
   landmark: {
-    fontWeight: 600,
-  },
-  // The filled box the urgency sits in.
-  tile: {
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-  },
-  urgency: {
-    flexDirection: 'row',
-    gap: Spacing.three,
-    marginTop: Spacing.one,
-  },
-  // The pin's color, as on the Map. Nudged down to sit beside the first line of text.
-  urgencyDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginTop: 6,
-    // The white edge keeps the dot visible on a dark page, as on the dark map.
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  urgencyText: {
-    flex: 1,
-    gap: Spacing.half,
-  },
-  urgencyLabel: {
     fontWeight: 600,
   },
   // At the end of the row. A long typed value wraps under itself, still against the end.

@@ -21,12 +21,10 @@ import { formatAge, formatDistance } from '@/lib/format';
 import type { NearbyReport } from '@/lib/nearby';
 import { ANIMAL_TYPES, URGENCIES, type ReportUrgency } from '@/lib/reports';
 
-const PHOTO_SIZE = 56;
 /** One fade of the "on the way" dot, out or back. */
 const PULSE_MS = 900;
 
-// The word's color steps up with the urgency. The least urgent stays neutral, so a list of
-// sightings does not shout.
+// Shared with the map preview, so urgency keeps the same meaning on both surfaces.
 export const URGENCY_CHIP: Record<ReportUrgency, 'danger' | 'warning' | 'default'> = {
   critical: 'danger',
   needs_help_soon: 'warning',
@@ -39,6 +37,12 @@ const URGENCY_TEXT_COLOR: Record<ReportUrgency, string> = {
   just_sighted: 'text-default-soft-foreground',
 };
 
+const URGENCY_BACKGROUND_COLOR: Record<ReportUrgency, string> = {
+  critical: 'bg-danger-soft',
+  needs_help_soon: 'bg-warning-soft',
+  just_sighted: 'bg-default-soft',
+};
+
 type ReportRowProps = {
   report: NearbyReport;
   onOpen: (report: NearbyReport) => void;
@@ -47,9 +51,11 @@ type ReportRowProps = {
 /** One report card, rendered independently by the virtualized list. */
 export function ReportRow({ report, onOpen }: ReportRowProps) {
   const { session } = useSession();
-  const border = useThemeColor('border');
   const foreground = useThemeColor('foreground');
   const urgencyColor = useResolveClassNames(URGENCY_TEXT_COLOR[report.urgency]).color;
+  const urgencyBackground = useResolveClassNames(
+    URGENCY_BACKGROUND_COLOR[report.urgency]
+  ).backgroundColor;
 
   // A typed kind has no entry in the list and is shown as typed.
   const animal =
@@ -72,43 +78,50 @@ export function ReportRow({ report, onOpen }: ReportRowProps) {
     .join(', ');
 
   return (
-    <Card style={[styles.card, { borderColor: border }]}>
+    <Card className="bg-[#F0F0F3] dark:bg-[#222222]" style={styles.card}>
       {/* The whole card is one button, the bar at its foot included. */}
       <Pressable
         role="button"
         aria-label={spoken}
         onPress={() => onOpen(report)}
         style={styles.press}>
-        <View style={styles.row}>
+        <View style={styles.content}>
           {report.photos[0] ? (
-            <Image source={{ uri: report.photos[0] }} style={styles.photo} />
+            <Image source={{ uri: report.photos[0] }} contentFit="cover" style={styles.photo} />
           ) : (
-            <ThemedView type="backgroundSelected" style={styles.photo} />
+            <ThemedView
+              type="backgroundSelected"
+              darkColor="#555555"
+              style={[styles.photo, styles.noPhoto]}>
+              <ThemedText type="small" style={[styles.noPhotoLabel, { color: foreground }]}>
+                No photo
+              </ThemedText>
+            </ThemedView>
           )}
           <View style={styles.details}>
-            <ThemedText numberOfLines={1} style={{ color: foreground }}>
-              {animal}
-            </ThemedText>
-            <ThemedText type="small" style={[styles.urgency, { color: urgencyColor }]}>
-              {urgency}
-            </ThemedText>
-          </View>
-          <View style={styles.end}>
-            <ThemedText type="small" style={styles.distance}>
-              {distance}
-            </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.age}>
-              {age}
+            <View style={styles.row}>
+              <ThemedText numberOfLines={2} style={[styles.animal, { color: foreground }]}>
+                {animal}
+              </ThemedText>
+              <View style={[styles.urgencyChip, { backgroundColor: urgencyBackground }]}>
+                <ThemedText type="small" style={[styles.urgency, { color: urgencyColor }]}>
+                  {urgency}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText themeColor="textSecondary" style={styles.metadata}>
+              {`${distance} away • ${age.toLowerCase()}`}
             </ThemedText>
           </View>
         </View>
-        {/* Shaped like a button that cannot be pressed, where "I'm on my way" would be: the
-            report is taken. Seen down a list without reading each card. It is not a button of
-            its own: a tap on it opens the report like the rest of the card. */}
         {isResponding && (
-          <ThemedView testID="responding-footer" type="backgroundElement" style={styles.footer}>
+          <ThemedView
+            testID="responding-footer"
+            type="backgroundSelected"
+            darkColor="#333333"
+            style={styles.footer}>
             <LiveDot />
-            <ThemedText type="small" numberOfLines={1} style={styles.footerLabel}>
+            <ThemedText style={styles.footerLabel}>
               {responding}
             </ThemedText>
           </ThemedView>
@@ -123,7 +136,7 @@ export function ReportRow({ report, onOpen }: ReportRowProps) {
  * so nothing around it moves. Still for people who turned motion off on their phone. The words
  * beside it say the same thing, so the meaning does not rest on the color or the movement.
  */
-function LiveDot() {
+export function LiveDot() {
   const success = useThemeColor('success');
   const prefersStill = useReducedMotion();
   const opacity = useSharedValue(1);
@@ -145,24 +158,22 @@ function LiveDot() {
   return <Animated.View style={[styles.live, { backgroundColor: success }, pulse]} />;
 }
 
-/** The shape of the list while the first search runs: photo, name and urgency, distance and age. */
+/** Match the thumbnail and two-line details of a compact report card. */
 export function ReportListSkeleton({ rows }: { rows: number }) {
-  const border = useThemeColor('border');
   return (
     <View style={styles.skeletonList}>
       {Array.from({ length: rows }, (_, row) => (
-        <Card key={row} style={[styles.card, { borderColor: border }]}>
-          <View pointerEvents="none" style={[styles.press, styles.row]}>
-            <Skeleton className="h-14 w-14 rounded-xl" />
-            <View style={styles.details}>
-              <View style={styles.skeletonText}>
-                <Skeleton className="h-4 w-24 rounded-md" />
-                <Skeleton className="h-3 w-20 rounded-md" />
+        <Card key={row} className="bg-[#F0F0F3] dark:bg-[#222222]" style={styles.card}>
+          <View pointerEvents="none" style={styles.press}>
+            <View style={styles.content}>
+              <Skeleton style={styles.photo} />
+              <View style={styles.details}>
+                <View style={styles.row}>
+                  <Skeleton className="h-4 w-16 rounded-md" />
+                  <Skeleton className="h-5 w-12 rounded-full" />
+                </View>
+                <Skeleton className="h-3 w-4/5 rounded-md" />
               </View>
-            </View>
-            <View style={[styles.end, styles.skeletonText]}>
-              <Skeleton className="h-4 w-12 rounded-md" />
-              <Skeleton className="h-3 w-10 rounded-md" />
             </View>
           </View>
         </Card>
@@ -174,70 +185,96 @@ export function ReportListSkeleton({ rows }: { rows: number }) {
 const styles = StyleSheet.create({
   card: {
     padding: 0,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0,
+    borderRadius: 24,
+    overflow: 'hidden',
   },
   // The card's padding, kept by the button so every part of the card is pressed.
   press: {
-    padding: Spacing.two + Spacing.one,
-    gap: Spacing.two + Spacing.one,
+    padding: Spacing.two,
+    gap: Spacing.two,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two + Spacing.one,
+    justifyContent: 'space-between',
+    gap: Spacing.one,
+    flexWrap: 'wrap',
   },
   details: {
     flex: 1,
+    minWidth: 0,
+    gap: Spacing.one,
+  },
+  animal: {
+    flexGrow: 1,
+    flexShrink: 1,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: 600,
+  },
+  metadata: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: 400,
+    fontVariant: ['tabular-nums'],
   },
   skeletonList: {
     gap: Spacing.two,
   },
   photo: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE,
-    borderRadius: Spacing.two + Spacing.one,
+    width: 66,
+    height: 66,
+    borderRadius: 24,
+    flexShrink: 0,
+  },
+  noPhoto: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noPhotoLabel: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   urgency: {
     fontSize: 12,
     lineHeight: 16,
-    marginTop: Spacing.one,
+    fontWeight: 400,
+  },
+  urgencyChip: {
+    maxWidth: '100%',
+    borderRadius: 999,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
   },
   // As wide as the card and as tall as a small button, its words in the middle.
   footer: {
     flexDirection: 'row',
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.two,
-    minHeight: 36,
+    minHeight: 32,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.one,
+    borderRadius: 999,
   },
   // Full strength, not greyed: it is news, not a control that is switched off.
   footerLabel: {
-    fontWeight: 600,
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: 500,
+    textAlign: 'center',
   },
   live: {
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  // Right-aligned column at the end of the row.
-  end: {
-    alignItems: 'flex-end',
-    gap: Spacing.half,
-  },
-  distance: {
-    fontWeight: 600,
-    fontVariant: ['tabular-nums'],
-  },
-  // The smallest text on the row: it is read last.
-  age: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontVariant: ['tabular-nums'],
-  },
-  skeletonText: {
-    gap: Spacing.two,
   },
 });

@@ -1,0 +1,74 @@
+{
+  "seed": "cavite-20261010-v1",
+  "project_ref": "knytvkbecwmftnijepul",
+  "seeded_at": "2026-10-10T15:55:41.538046+00:00",
+  "demo_only": true,
+  "notes": "Fictional reports, not real rescue requests. Existing accounts and profiles were preserved. No push alerts were sent. Remove only the exact IDs and Storage paths in this manifest if cleanup is requested.",
+  "boundary_source": "https://raw.githubusercontent.com/faeldon/philippines-json-maps/master/2023/geojson/provdists/medres/municities-provdist-402100000.0.01.json",
+  "storage_bucket": "report-photos",
+  "actors": [
+    { "id": "604fcc39-8ca3-4be2-bf23-588c1193632f", "kind": "anonymous_demo_reporter", "name": "Guest8466" },
+    { "id": "6fe6c6ed-7ad1-5a67-ba05-dc7863dfab08", "kind": "non_login_demo_rescuer", "name": "Guest5438" },
+    { "id": "fd34c73e-5132-51d3-a9a6-c53a9f769bab", "kind": "non_login_demo_rescuer", "name": "Guest4570" }
+  ],
+  "reports": [
+    {
+      "id": "50cbd07e-b9c2-5210-ad57-a6a99451f6ed", "town": "Bacoor", "latitude": 14.4583, "longitude": 120.941924,
+      "status": "reported", "animal_type": "dog", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234803.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/50cbd07e-b9c2-5210-ad57-a6a99451f6ed/1.png"
+    },
+    {
+      "id": "c533b1b1-0329-5189-90aa-1f80f53f03fc", "town": "Imus", "latitude": 14.428784, "longitude": 120.937363,
+      "status": "responding", "animal_type": "dog", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234811.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/c533b1b1-0329-5189-90aa-1f80f53f03fc/1.png"
+    },
+    {
+      "id": "4bec38cb-4fe3-5f19-8c70-7f227f6f84bf", "town": "Dasmariñas", "latitude": 14.328914, "longitude": 120.936503,
+      "status": "reported", "animal_type": "dog", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234818.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/4bec38cb-4fe3-5f19-8c70-7f227f6f84bf/1.png"
+    },
+    {
+      "id": "cc8afd4a-e39b-55fd-8fed-2efef73b7fb5", "town": "General Trias", "latitude": 14.385713, "longitude": 120.882954,
+      "status": "rescued", "animal_type": "cat", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234828.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/cc8afd4a-e39b-55fd-8fed-2efef73b7fb5/1.png"
+    },
+    {
+      "id": "1e853056-4f35-5da5-81ee-6d0e963ea888", "town": "Trece Martires", "latitude": 14.281147, "longitude": 120.867685,
+      "status": "reported", "animal_type": "cat", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234843.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/1e853056-4f35-5da5-81ee-6d0e963ea888/1.png"
+    },
+    {
+      "id": "96497ede-c0b0-5f5a-9e27-848bace7ff41", "town": "Tanza", "latitude": 14.397906, "longitude": 120.853772,
+      "status": "closed", "animal_type": "dog", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234849.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/96497ede-c0b0-5f5a-9e27-848bace7ff41/1.png"
+    },
+    {
+      "id": "1ff3869f-a682-5dc0-b49e-5691c5f2f816", "town": "Naic", "latitude": 14.318026, "longitude": 120.764655,
+      "status": "not_found", "animal_type": "cat", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234856.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/1ff3869f-a682-5dc0-b49e-5691c5f2f816/1.png"
+    },
+    {
+      "id": "3fe715e2-4e14-5eb4-ae2b-d370b7199bea", "town": "Silang", "latitude": 14.23081, "longitude": 120.973941,
+      "status": "responding", "animal_type": "dog", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234904.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/3fe715e2-4e14-5eb4-ae2b-d370b7199bea/1.png"
+    },
+    {
+      "id": "2411dff0-4f7b-515f-af6d-23d2d7ea8887", "town": "Tagaytay", "latitude": 14.11569, "longitude": 120.961698,
+      "status": "rescued", "animal_type": "cat", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234914.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/2411dff0-4f7b-515f-af6d-23d2d7ea8887/1.png"
+    },
+    {
+      "id": "8c84bf56-2b65-5b8b-a23e-8b6ad5f28282", "town": "Indang", "latitude": 14.195815, "longitude": 120.878359,
+      "status": "closed", "animal_type": "dog", "source_image": "assets/demo-strays/Screenshot 2026-10-10 234920.png",
+      "storage_path": "604fcc39-8ca3-4be2-bf23-588c1193632f/8c84bf56-2b65-5b8b-a23e-8b6ad5f28282/1.png"
+    }
+  ],
+  "claims": [
+    "1be3cc20-5518-54fc-8820-563b3583cf50", "4202f9a1-012f-5282-9051-e4bf293318b9",
+    "af23ad43-c505-5d0c-b395-672334ac64cc", "56741044-83e4-51f2-9d1a-a6e3577e513b",
+    "cd54b756-dc6c-5f39-9c42-f7b6f5d03754", "6a121e86-53eb-5168-925f-7a40175ee8f6"
+  ],
+  "flags": [
+    "e63b6dee-a0d3-50e3-a77a-14b4729df443", "5070d0cc-b13c-5ecc-a182-b7904d198252", "aee4e590-f2b8-582f-b956-c2c8408ec427"
+  ]
+}

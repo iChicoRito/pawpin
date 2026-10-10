@@ -1,0 +1,14 @@
+{
+  "seed": "ichibanyan-cavite-20261011-v1",
+  "example_data": true,
+  "reporter_id": "42ba9aa8-4bf1-4241-85d4-998a0f132f52",
+  "notes": "Five fictional example reports under the existing account. No visible DEMO wording. Photos reference the earlier Cavite dataset; do not delete shared photos or the existing reporter account when removing these examples.",
+  "reports": [
+    { "id": "55554440-eab3-5f10-b0d4-3d6861b31e1b", "town": "Bacoor", "status": "reported" },
+    { "id": "951c1c1f-deaa-536a-86ac-888c2867e157", "town": "Dasmariñas", "status": "reported" },
+    { "id": "d19a7893-176f-5fa0-b32d-9baad6967f8b", "town": "General Trias", "status": "reported" },
+    { "id": "3bebb7e9-0ad7-5fff-8527-c0680aa64117", "town": "Tagaytay", "status": "rescued" },
+    { "id": "c1af87dc-459b-5457-a6f5-09ebd05978a0", "town": "Indang", "status": "closed" }
+  ],
+  "claims": ["ad7302a1-7f69-5247-a9a2-ff5eaffc233b"]
+}

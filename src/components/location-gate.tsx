@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   card: {
-    borderRadius: Spacing.three,
+    borderRadius: Spacing.four,
+    overflow: 'hidden',
   },
 });

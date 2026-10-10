@@ -1,5 +1,6 @@
 import AlertCircleIcon from '@hugeicons/core-free-icons/AlertCircleIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
+import { Image } from 'expo-image';
 import { Button, useThemeColor } from 'heroui-native';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -9,6 +10,7 @@ import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signInWithGoogle } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
@@ -29,6 +31,7 @@ export default function WelcomeScreen() {
   const [signingIn, setSigningIn] = useState<Method | null>(null);
   const [failed, setFailed] = useState(false);
   const danger = useThemeColor('danger');
+  const colorScheme = useColorScheme();
 
   async function signIn(method: Method) {
     setSigningIn(method);
@@ -48,10 +51,14 @@ export default function WelcomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.intro}>
-          <ThemedText type="title">PawPin</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Spotted a stray? Pin the exact spot so rescuers can find it.
-          </ThemedText>
+          <Image
+            source={colorScheme === 'dark'
+              ? require('../../assets/DarkMode.svg')
+              : require('../../assets/LightMode.svg')}
+            accessibilityLabel="PawPin"
+            contentFit="contain"
+            style={styles.logo}
+          />
         </View>
 
         <View style={styles.actions}>
@@ -105,6 +112,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: Spacing.three,
+  },
+  logo: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 320,
+    aspectRatio: 735 / 253,
   },
   error: {
     flexDirection: 'row',

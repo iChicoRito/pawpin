@@ -1,6 +1,7 @@
 import Alert02Icon from '@hugeicons/core-free-icons/Alert02Icon';
 import FirstAidKitIcon from '@hugeicons/core-free-icons/FirstAidKitIcon';
 import HeartCheckIcon from '@hugeicons/core-free-icons/HeartCheckIcon';
+import InformationCircleIcon from '@hugeicons/core-free-icons/InformationCircleIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
 import Notification01Icon from '@hugeicons/core-free-icons/Notification01Icon';
@@ -15,11 +16,12 @@ import {
   Card,
   ListGroup,
   Separator,
+  Switch,
   Typography,
   useThemeColor,
 } from 'heroui-native';
 import { Fragment, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
@@ -28,7 +30,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
 import { fetchAlertRadius, useAlertPermission } from '@/lib/alerts';
-import { APPEARANCES, useAppearance } from '@/lib/appearance';
+import { setAppearance, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
 import { initialsOf } from '@/lib/format';
 import { RADIUS_CHOICES } from '@/lib/nearby';
@@ -39,6 +41,8 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [foreground, accent] = useThemeColor(['foreground', 'accent']);
   const appearance = useAppearance();
+  const colorScheme = useColorScheme();
+  const isDark = appearance === 'dark' || (appearance === 'system' && colorScheme === 'dark');
   const isFocused = useIsFocused();
   const [permission] = useAlertPermission();
   const [alertRadiusM, setAlertRadiusM] = useState<number | null>(null);
@@ -95,9 +99,15 @@ export default function ProfileScreen() {
     {
       icon: Moon02Icon,
       title: 'Appearance',
-      // Says what is chosen now.
-      description: APPEARANCES.find((option) => option.value === appearance)?.label ?? '',
-      onPress: () => router.push('/appearance'),
+      description: isDark ? 'Dark mode' : 'Light mode',
+      suffix: (
+        <Switch
+          accessibilityLabel="Dark mode"
+          hitSlop={8}
+          isSelected={isDark}
+          onSelectedChange={(selected) => setAppearance(selected ? 'dark' : 'light')}
+        />
+      ),
     },
     // For whoever may go to an animal. An admin does not.
     !isAdmin && {
@@ -111,6 +121,12 @@ export default function ProfileScreen() {
       title: 'Settings',
       description: 'Account, privacy, and signing out.',
       onPress: () => router.push('/settings'),
+    },
+    {
+      icon: InformationCircleIcon,
+      title: 'About PawPin',
+      description: 'About the app and its developer.',
+      onPress: () => router.push('/about'),
     },
   ].filter((option) => !!option);
 
@@ -146,13 +162,15 @@ export default function ProfileScreen() {
 
         {isGuest && <GuestCard />}
 
-        {/* One HeroUI ListGroup, the same grouped list as the List tab: an icon, a name, one line
-            on what the row is for, and the arrow that says it opens something. */}
         <ListGroup>
           {options.map((option, index) => (
             <Fragment key={option.title}>
               {index > 0 && <Separator className="mx-4" />}
-              <ListGroup.Item role="button" onPress={option.onPress}>
+              <ListGroup.Item
+                role={option.onPress ? 'button' : undefined}
+                accessible={option.onPress ? undefined : false}
+                focusable={!!option.onPress}
+                onPress={option.onPress}>
                 <ListGroup.ItemPrefix>
                   <HugeiconsIcon icon={option.icon} size={20} color={foreground} />
                 </ListGroup.ItemPrefix>
@@ -160,7 +178,7 @@ export default function ProfileScreen() {
                   <ListGroup.ItemTitle>{option.title}</ListGroup.ItemTitle>
                   <ListGroup.ItemDescription>{option.description}</ListGroup.ItemDescription>
                 </ListGroup.ItemContent>
-                <ListGroup.ItemSuffix />
+                <ListGroup.ItemSuffix>{option.suffix}</ListGroup.ItemSuffix>
               </ListGroup.Item>
             </Fragment>
           ))}

@@ -97,41 +97,47 @@ export function PermissionRow({ icon, name, title, reason, permission, onAllow }
 
   return (
     <View style={styles.row}>
-      <HugeiconsIcon icon={icon} size={22} color={foreground} />
-      <View style={styles.rowText}>
-        <ThemedText type="smallBold">{title}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {reason}
-        </ThemedText>
-
-        {permission.granted ? (
-          <View style={styles.allowed}>
-            <HugeiconsIcon icon={Tick02Icon} size={18} color={accent} />
-            <ThemedText type="small">Allowed</ThemedText>
-          </View>
-        ) : isBlocked ? (
-          <>
-            <ThemedText type="small" role="alert">
-              {Platform.OS === 'web'
-                ? `The ${name} is blocked for this site. Allow it in your browser's site settings, then reload.`
-                : `The ${name} is turned off for PawPin. Turn it on in your phone's settings.`}
-            </ThemedText>
-            {/* A web page cannot open the browser's settings. */}
-            {Platform.OS !== 'web' && (
-              <Button
-                variant="secondary"
-                style={styles.action}
-                onPress={() => Linking.openSettings()}>
-                Open settings
-              </Button>
-            )}
-          </>
-        ) : (
-          <Button style={styles.action} onPress={onAllow}>
-            {`Allow ${name}`}
-          </Button>
-        )}
+      <View style={styles.header}>
+        <ThemedView aria-hidden type="backgroundSelected" style={styles.icon}>
+          <HugeiconsIcon icon={icon} size={24} color={foreground} />
+        </ThemedView>
+        <View style={styles.rowText}>
+          <ThemedText role="heading" style={styles.title}>
+            {title}
+          </ThemedText>
+          <ThemedText themeColor="textSecondary" style={styles.description}>
+            {reason}
+          </ThemedText>
+        </View>
       </View>
+
+      {permission.granted ? (
+        <Button variant="secondary" isDisabled style={[styles.action, styles.allowed]}>
+          <HugeiconsIcon icon={Tick02Icon} size={18} color={accent} />
+          <ThemedText type="smallBold">Allowed</ThemedText>
+        </Button>
+      ) : isBlocked ? (
+        <>
+          <ThemedText role="alert" style={styles.description}>
+            {Platform.OS === 'web'
+              ? `The ${name} is blocked for this site. Allow it in your browser's site settings, then reload.`
+              : `The ${name} is turned off for PawPin. Turn it on in your phone's settings.`}
+          </ThemedText>
+          {/* A web page cannot open the browser's settings. */}
+          {Platform.OS !== 'web' && (
+            <Button
+              variant="secondary"
+              style={styles.action}
+              onPress={() => Linking.openSettings()}>
+              Open settings
+            </Button>
+          )}
+        </>
+      ) : (
+        <Button style={styles.action} onPress={onAllow}>
+          {`Allow ${name}`}
+        </Button>
+      )}
     </View>
   );
 }
@@ -157,29 +163,54 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   card: {
-    borderRadius: Spacing.three,
+    borderRadius: Spacing.four,
+    overflow: 'hidden',
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    marginLeft: Spacing.three,
+    marginHorizontal: Spacing.three,
   },
   row: {
-    flexDirection: 'row',
     gap: Spacing.three,
     padding: Spacing.three,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+  },
+  icon: {
+    width: 48,
+    height: 48,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.three,
+  },
   rowText: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.one,
+  },
+  title: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: 700,
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: 400,
   },
   allowed: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
-    marginTop: Spacing.two,
+    justifyContent: 'center',
+    gap: Spacing.two,
   },
   action: {
-    alignSelf: 'flex-start',
-    marginTop: Spacing.two,
+    width: '100%',
+    minHeight: 48,
+    borderRadius: Spacing.three,
   },
 });

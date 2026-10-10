@@ -1,12 +1,12 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { HeroUINativeProvider } from 'heroui-native';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import '@/global.css';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { DrawerBackdropProvider, DrawerBlurTarget } from '@/components/drawer-backdrop';
 import { NearbyReportsProvider } from '@/hooks/use-nearby-reports';
 import { SessionProvider, useSession } from '@/hooks/use-session';
@@ -42,28 +42,29 @@ function RootNavigator() {
   const { session, isLoading } = useSession();
   useAlertRegistration(session?.user.id);
 
+  useEffect(() => {
+    if (!isLoading) SplashScreen.hide();
+  }, [isLoading]);
+
   // The phone's own splash stays up until the saved session is read, so the wrong screen never flashes.
   if (isLoading) return null;
 
   return (
-    <>
-      <AnimatedSplashOverlay />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={!!session}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="settings" options={{ headerShown: true, title: 'Settings' }} />
-          <Stack.Screen name="alerts" options={{ headerShown: true, title: 'Alerts' }} />
-          <Stack.Screen name="appearance" options={{ headerShown: true, title: 'Appearance' }} />
-          <Stack.Screen name="safety" options={{ headerShown: true, title: 'Safety tips' }} />
-          <Stack.Screen name="report/[id]" options={{ headerShown: true, title: 'Report' }} />
-          {/* The screen sets its own title: "Your reports" or "Your rescues". */}
-          <Stack.Screen name="history" options={{ headerShown: true, title: '' }} />
-          <Stack.Screen name="components" />
-        </Stack.Protected>
-        <Stack.Protected guard={!session}>
-          <Stack.Screen name="welcome" />
-        </Stack.Protected>
-      </Stack>
-    </>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="settings" options={{ headerShown: true, title: 'Settings' }} />
+        <Stack.Screen name="about" options={{ headerShown: true, title: 'About PawPin' }} />
+        <Stack.Screen name="alerts" options={{ headerShown: true, title: 'Alerts' }} />
+        <Stack.Screen name="safety" options={{ headerShown: true, title: 'Safety tips' }} />
+        <Stack.Screen name="report/[id]" options={{ headerShown: true, title: 'Report' }} />
+        {/* The screen sets its own title: "Your reports" or "Your rescues". */}
+        <Stack.Screen name="history" options={{ headerShown: true, title: '' }} />
+        <Stack.Screen name="components" />
+      </Stack.Protected>
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="welcome" />
+      </Stack.Protected>
+    </Stack>
   );
 }
