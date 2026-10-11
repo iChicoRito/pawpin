@@ -1,4 +1,4 @@
-import { Camera, GeoJSONSource, Images, Layer, Map } from '@maplibre/maplibre-react-native';
+import { Camera, GeoJSONSource, Images, Map } from '@maplibre/maplibre-react-native';
 import { Skeleton, useThemeColor } from 'heroui-native';
 import { useState } from 'react';
 import { StyleSheet, Text, useColorScheme, View } from 'react-native';
@@ -6,6 +6,8 @@ import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Spacing } from '@/constants/theme';
 import { mapStyleFor, PAW_IMAGES, STREET_ZOOM } from '@/lib/map';
 import type { ReportUrgency } from '@/lib/reports';
+import { ReportPinLayers } from '@/components/report-pin-layers';
+import { playSound } from '@/lib/sounds';
 
 const MAP_HEIGHT = 168;
 
@@ -16,7 +18,7 @@ type ReportPlaceMapProps = {
 };
 
 /**
- * A still picture of the streets around a report, with its pin in the middle. For looking, not for
+ * The streets around a report, with its pin in the middle. For looking, not for
  * moving: touches pass through, so the page scrolls over it. Phones only; browsers get
  * report-place-map.web.tsx.
  */
@@ -44,7 +46,10 @@ export function ReportPlaceMap({ latitude, longitude, urgency }: ReportPlaceMapP
         compass={false}
         logo={false}
         attribution={false}
-        onDidFailLoadingMap={() => setFailed(true)}
+        onDidFailLoadingMap={() => {
+          playSound('error');
+          setFailed(true);
+        }}
         onDidFinishLoadingMap={() => setIsReady(true)}>
         <Images images={PAW_IMAGES} />
         {/* The map library takes longitude first. One step out from street level, for bearings. */}
@@ -54,20 +59,9 @@ export function ReportPlaceMap({ latitude, longitude, urgency }: ReportPlaceMapP
           data={{
             type: 'Feature',
             geometry: { type: 'Point', coordinates: [longitude, latitude] },
-            properties: {},
+            properties: { urgency },
           }}>
-          {/* The same paw as on the Map tab, in its urgency color. */}
-          <Layer
-            type="symbol"
-            id="report-place-pin"
-            source="report-place"
-            layout={{
-              'icon-image': `paw-${urgency}`,
-              'icon-size': 0.36,
-              'icon-allow-overlap': true,
-              'icon-ignore-placement': true,
-            }}
-          />
+          <ReportPinLayers source="report-place" />
         </GeoJSONSource>
       </Map>
       {/* Covers the empty grey box until the streets are drawn. */}

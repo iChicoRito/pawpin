@@ -110,8 +110,12 @@ test('own reports alone show an empty list with a wider search, never Show all r
   assert.deepEqual(screen.searched, [10000]);
 });
 
-function formScreen(reportApi) {
+function formScreen(reportApi, heard = []) {
   const state = hooks();
+  const feedback = loadSource('src/hooks/use-feedback.ts', {
+    react: state.react, 'heroui-native': ui,
+    '@/lib/sounds': { playSound: (kind) => heard.push(kind) },
+  });
   const module = loadSource('src/components/report-form.tsx', {
     '@maplibre/maplibre-react-native': { Camera: 'Camera', Map: 'Map' },
     'react-native-gesture-handler': require('./load-source.cjs').gestureHandler,
@@ -122,6 +126,7 @@ function formScreen(reportApi) {
     '@/components/report-photo': { PhotoThumb: 'PhotoThumb' },
     '@/constants/theme': theme, '@/components/report-sent': { ReportSent: 'ReportSent', ToastIcon: 'ToastIcon' },
     '@/hooks/use-session': { useSession: () => ({ session: { user: { id: 'user' } } }) },
+    '@/hooks/use-feedback': feedback,
     '@/lib/map': { mapInkFor: () => ({ ink: '#000' }), mapStyleFor: () => '', STREET_ZOOM: 17 },
     '@/lib/reports': { ANIMAL_TYPES: [], COLORS: [], CONDITIONS: [], SIZES: [], URGENCIES: [], GUEST_LIMIT_ERROR: 'guest_report_limit', ...reportApi },
   });
@@ -192,4 +197,18 @@ test('failed local persistence prevents network submission', async (t) => {
   await screen.send();
   assert.equal(sent, false);
   assert.ok(findElement(screen.render(), (node) => node.props?.role === 'alert'));
+});
+
+test('each successful report upload chimes; failed upload sounds error without a success cue', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const heard = [];
+  const api = {
+    saveUnsentReport: async (draft) => draft,
+    submitReport: async () => {},
+    discardUnsentReport: async () => {},
+  };
+  await formScreen(api, heard).send();
+  await formScreen(api, heard).send();
+  await formScreen({ ...api, submitReport: async () => { throw new Error('Offline'); } }, heard).send();
+  assert.deepEqual(heard, ['success', 'success', 'error']);
 });

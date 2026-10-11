@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useSoundOnVisible } from '@/hooks/use-feedback';
 
 type NoticeProps = {
   icon: IconSvgElement;
@@ -31,6 +32,7 @@ export function Notice({
   isAlert = false,
 }: NoticeProps) {
   const muted = useThemeColor('muted');
+  useSoundOnVisible('error', isAlert ? text : false);
   return (
     <View role={isAlert ? 'alert' : undefined} style={styles.notice}>
       <ThemedView

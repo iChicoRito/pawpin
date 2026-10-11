@@ -2,6 +2,7 @@ import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useSoundOnVisible } from '@/hooks/use-feedback';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
@@ -10,6 +11,9 @@ export type ThemedTextProps = TextProps & {
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  useSoundOnVisible('error', rest.role === 'alert'
+    ? (typeof rest.children === 'string' ? rest.children : true)
+    : false);
 
   return (
     <Text

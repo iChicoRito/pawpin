@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Button, useToast } from 'heroui-native';
+import { Button } from 'heroui-native';
 import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFeedbackToast } from '@/hooks/use-feedback';
 import { signInWithGoogle } from '@/lib/auth';
 import { GuestSignInError, signInAsGuest } from '@/lib/guest-auth';
 
@@ -18,7 +19,7 @@ type Method = 'google' | 'guest';
 export default function WelcomeScreen() {
   const [signingIn, setSigningIn] = useState<Method | null>(null);
   const isSigningIn = useRef(false);
-  const { toast } = useToast();
+  const { toast } = useFeedbackToast();
   const colorScheme = useColorScheme();
 
   async function signIn(method: Method) {

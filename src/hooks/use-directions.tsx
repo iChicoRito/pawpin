@@ -1,12 +1,12 @@
 import * as Linking from 'expo-linking';
-import { useToast } from 'heroui-native';
+import { useFeedbackToast } from '@/hooks/use-feedback';
 
 import { ToastIcon } from '@/components/report-sent';
 import { googleMapsLink, wazeLink } from '@/lib/directions';
 
 /** Opens directions to a place in Google Maps or Waze, and says so if the phone could not. */
 export function useDirections(place: { latitude: number; longitude: number } | undefined) {
-  const { toast } = useToast();
+  const { toast } = useFeedbackToast();
 
   async function open(link: string) {
     try {

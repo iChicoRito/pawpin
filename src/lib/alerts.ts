@@ -6,6 +6,7 @@ import { AppState, Platform } from 'react-native';
 
 import type { ReportPlace } from '@/lib/reports';
 import { supabase } from '@/lib/supabase';
+import { playSound } from '@/lib/sounds';
 
 // Phones only. Browsers get alerts.web.ts.
 
@@ -13,15 +14,20 @@ import { supabase } from '@/lib/supabase';
 const CHANNEL = 'default';
 const CARD_KEY = 'pawpin.alerts-card-dismissed';
 
-// An alert that arrives while the app is open is still shown. Without this the phone drops it.
-// Android does not show the drop-down for an alert that makes no sound.
+// Foreground reports share realtime's ID to avoid a system sound plus the app's pop.
+// Android can suppress heads-up banners without system audio; the notification list remains.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const reportId = notification.request.content.data?.reportId;
+    const appSound = AppState.currentState === 'active' && typeof reportId === 'string';
+    if (appSound) playSound('notification', `report:${reportId}`);
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: !appSound,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 // Android 13 and up shows its "allow notifications" prompt only once a channel exists.

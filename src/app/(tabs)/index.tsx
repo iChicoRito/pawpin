@@ -8,53 +8,37 @@ import {
   Map,
   type CameraRef,
 } from '@maplibre/maplibre-react-native';
-import { Image } from 'expo-image';
 import { useIsFocused, useRouter } from 'expo-router';
 import { Button, Skeleton, Spinner, useThemeColor } from 'heroui-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AdminDashboard } from '@/components/admin-dashboard';
 import { LocationGate } from '@/components/location-gate';
+import { MapLegend } from '@/components/map-legend';
 import { RadiusChoice } from '@/components/radius-choice';
 import { ReportPreview } from '@/components/report-preview';
+import { ReportPinLayers } from '@/components/report-pin-layers';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
 import { useSession } from '@/hooks/use-session';
 import { dismissAlertCard, isAlertCardDismissed, useAlertPermission } from '@/lib/alerts';
-import { mapInkFor, mapStyleFor, PAW_IMAGES, zoomForRadius } from '@/lib/map';
-import { RADIUS_CHOICES, URGENCY_COLORS } from '@/lib/nearby';
-import { URGENCIES, type ReportUrgency } from '@/lib/reports';
+import { mapStyleFor, PAW_IMAGES, VIEWER_COLOR, zoomForRadius } from '@/lib/map';
+import { RADIUS_CHOICES } from '@/lib/nearby';
+import { playSound } from '@/lib/sounds';
 
-// A paw's size steps up with its urgency, so the three are told apart without color too. The
-// pictures are 96 px square, so 0.36 draws a paw about 34 px across.
-const PAW_SCALE: Record<ReportUrgency, number> = {
-  critical: 0.36,
-  needs_help_soon: 0.31,
-  just_sighted: 0.28,
-};
-/** Where the ripple starts: at the paw's edge, so all of it is seen and none hides under the paw. */
-const PULSE_START_RADIUS = 16;
-// In the key every paw is one size, so the line reads evenly. On the map they still differ.
-const LEGEND_PAW = 16;
 const VIEWER_RADIUS = 6;
 const MOVE_MS = 400;
-/** One ripple out from a pin, and the short rest before the next. */
-const PULSE_MS = 1500;
-const PULSE_REST_MS = 100;
-const PULSE_RIM = '#FFFFFF';
-const PULSE_RADIUS = 46;
 const FAB_SIZE = 52;
 // Roughly the chooser's height, so the compass sits just under it.
 const CHOOSER_HEIGHT = 48;
 // The key's line along the bottom: how far up it sits, and its height. The location button sits
 // above it, which also keeps it clear of the development gear button in the corner.
 const LEGEND_BOTTOM = 28;
-const LEGEND_HEIGHT = 32;
+const LEGEND_HEIGHT = 110;
 
 const LOCATION_FAILED =
   'Could not find your location. Check that location is on, or move near a window, then try again.';
@@ -79,8 +63,7 @@ function NearbyMap() {
   const { reports, place, radiusM, status, failure, refresh } = useNearbyReports();
   const [surface, border, foreground] = useThemeColor(['surface', 'border', 'foreground']);
   const isDark = useColorScheme() === 'dark';
-  // The viewer's dot. Not the usual blue: blue is the "just sighted" pin.
-  const viewer = mapInkFor(isDark);
+  const [legendHeight, setLegendHeight] = useState(LEGEND_HEIGHT);
   const camera = useRef<CameraRef>(null);
   // Set by the Refresh button, so the map comes back to the viewer once the new place is read.
   const shouldRecenter = useRef(false);
@@ -132,26 +115,6 @@ function NearbyMap() {
 
   const isLoading = status === 'loading';
 
-  // A ring ripples out from every pin and fades, over and over, so reports catch the eye. The map
-  // does the in-between frames itself; this only flips the ring between small and large.
-  const [isPulseOut, setIsPulseOut] = useState(false);
-  const prefersStill = useReducedMotion();
-  const hasReports = reports.length > 0;
-  useEffect(() => {
-    // Not while another tab is in front, and not for people who turned motion off on their phone.
-    if (!isFocused || !hasReports || prefersStill) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const out = () => {
-      setIsPulseOut(true);
-      timer = setTimeout(back, PULSE_MS);
-    };
-    const back = () => {
-      setIsPulseOut(false);
-      timer = setTimeout(out, PULSE_REST_MS);
-    };
-    timer = setTimeout(out, PULSE_REST_MS);
-    return () => clearTimeout(timer);
-  }, [isFocused, hasReports, prefersStill]);
   const radius = RADIUS_CHOICES.find((choice) => choice.value === radiusM)?.label ?? '';
   const message = failure === 'location' ? LOCATION_FAILED : NETWORK_FAILED;
   const panel = { backgroundColor: surface, borderColor: border };
@@ -220,7 +183,10 @@ function NearbyMap() {
           top: insets.top + Spacing.two + CHOOSER_HEIGHT + Spacing.two,
           right: Spacing.three,
         }}
-        onDidFailLoadingMap={() => setMapFailed(true)}>
+        onDidFailLoadingMap={() => {
+          playSound('error');
+          setMapFailed(true);
+        }}>
         {/* The map library takes longitude first. */}
         <Camera
           ref={camera}
@@ -252,65 +218,7 @@ function NearbyMap() {
               properties: { id: report.id, urgency: report.urgency },
             })),
           }}>
-          {/* Under the pins. Grows and fades in the pin's own color, then snaps back unseen. */}
-          <Layer
-            type="circle"
-            id="report-pulse"
-            source="reports"
-            paint={{
-              'circle-color': [
-                'match',
-                ['get', 'urgency'],
-                'critical',
-                URGENCY_COLORS.critical,
-                'needs_help_soon',
-                URGENCY_COLORS.needs_help_soon,
-                URGENCY_COLORS.just_sighted,
-              ],
-              'circle-radius': isPulseOut ? PULSE_RADIUS : PULSE_START_RADIUS,
-              'circle-opacity': isPulseOut ? 0 : 0.6,
-              // A firm rim on the ring, so its edge shows on a busy map as it spreads.
-              'circle-stroke-color': PULSE_RIM,
-              'circle-stroke-width': 2,
-              'circle-stroke-opacity': isPulseOut ? 0 : 0.9,
-              // Slow on the way out, instant on the way back.
-              'circle-radius-transition': { duration: isPulseOut ? PULSE_MS : 0, delay: 0 },
-              'circle-opacity-transition': { duration: isPulseOut ? PULSE_MS : 0, delay: 0 },
-              'circle-stroke-opacity-transition': { duration: isPulseOut ? PULSE_MS : 0, delay: 0 },
-            }}
-          />
-          <Layer
-            type="symbol"
-            id="report-pins"
-            source="reports"
-            layout={{
-              // "paw-critical" and so on: one picture per urgency, already in its color.
-              'icon-image': ['concat', 'paw-', ['get', 'urgency']],
-              'icon-size': [
-                'match',
-                ['get', 'urgency'],
-                'critical',
-                PAW_SCALE.critical,
-                'needs_help_soon',
-                PAW_SCALE.needs_help_soon,
-                PAW_SCALE.just_sighted,
-              ],
-              // Every report is drawn, also where paws overlap. The map would otherwise hide some
-              // to keep them apart, and a hidden report is a missed animal.
-              'icon-allow-overlap': true,
-              'icon-ignore-placement': true,
-              // The most urgent paw is drawn on top where they overlap.
-              'symbol-sort-key': [
-                'match',
-                ['get', 'urgency'],
-                'critical',
-                3,
-                'needs_help_soon',
-                2,
-                1,
-              ],
-            }}
-          />
+          <ReportPinLayers source="reports" animate={reports.length > 0} />
         </GeoJSONSource>
 
         {/* Where the viewer was at the last search. It does not follow them; Refresh moves it. */}
@@ -326,7 +234,7 @@ function NearbyMap() {
             id="viewer-ring"
             source="viewer"
             paint={{
-              'circle-color': viewer.ink,
+              'circle-color': VIEWER_COLOR,
               'circle-opacity': isDark ? 0.25 : 0.15,
               'circle-radius': VIEWER_RADIUS * 3,
             }}
@@ -336,10 +244,10 @@ function NearbyMap() {
             id="viewer-dot"
             source="viewer"
             paint={{
-              'circle-color': viewer.ink,
+              'circle-color': VIEWER_COLOR,
               'circle-radius': VIEWER_RADIUS,
               'circle-stroke-width': 3,
-              'circle-stroke-color': viewer.edge,
+              'circle-stroke-color': '#FFFFFF',
             }}
           />
         </GeoJSONSource>
@@ -393,23 +301,9 @@ function NearbyMap() {
         )}
       </View>
 
-      {/* One line along the bottom, like the strip a maps app keeps there. Three colors, three
-          words; the viewer's own dot needs no label. */}
+      {/* Legend height is measured, so the location button clears wrapped and larger text. */}
       <View pointerEvents="none" style={styles.legendBar}>
-        <View
-          role="group"
-          aria-label="What the pin colors mean"
-          // No shadow here: a quiet outline, so the key stays in the background of the map.
-          style={[styles.legend, panel]}>
-          {URGENCIES.map((urgency, index) => (
-            <View key={urgency.value} style={styles.legendItem}>
-              {/* A thin line between one meaning and the next. */}
-              {index > 0 && <View style={[styles.legendRule, { backgroundColor: border }]} />}
-              <Image source={PAW_IMAGES[`paw-${urgency.value}`]} style={styles.legendPaw} />
-              <ThemedText style={styles.legendLabel}>{urgency.label}</ThemedText>
-            </View>
-          ))}
-        </View>
+        <MapLegend onHeight={setLegendHeight} />
       </View>
 
       <Pressable
@@ -424,6 +318,7 @@ function NearbyMap() {
         style={({ pressed }) => [
           styles.panel,
           styles.fab,
+          { bottom: LEGEND_BOTTOM + legendHeight + Spacing.two },
           panel,
           pressed && styles.pressed,
         ]}>
@@ -505,11 +400,9 @@ const styles = StyleSheet.create({
     height: CHOOSER_HEIGHT,
   },
   ghostLegend: {
-    width: 280,
-    maxWidth: '100%',
+    width: '100%',
   },
-  // A pill along the bottom, above the map credit. Wraps to a second line on a very narrow phone
-  // instead of running off the screen.
+  // Above the map credit and tabs; never covers the map's attribution.
   legendBar: {
     position: 'absolute',
     left: Spacing.three,
@@ -520,37 +413,7 @@ const styles = StyleSheet.create({
   legend: {
     borderWidth: 1,
     minHeight: LEGEND_HEIGHT,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    // A row that may wrap packs its lines at the top unless told otherwise, which left the spare
-    // height under the words.
-    alignContent: 'center',
-    columnGap: Spacing.two,
-    rowGap: Spacing.half,
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: LEGEND_HEIGHT / 2,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one + Spacing.half,
-  },
-  // The same space on its left (the row's gap) as on its right.
-  legendRule: {
-    width: StyleSheet.hairlineWidth * 2,
-    height: 12,
-    marginRight: Spacing.half,
-  },
-  legendPaw: {
-    width: LEGEND_PAW,
-    height: LEGEND_PAW,
-  },
-  legendLabel: {
-    fontSize: 12,
-    lineHeight: 16,
+    borderRadius: Spacing.three,
   },
   // Round, bottom right, where the thumb rests: the place a maps app keeps its location button.
   fab: {

@@ -1,4 +1,4 @@
-import { Alert, Button, Spinner, useThemeColor, useToast } from 'heroui-native';
+import { Alert, Button, Spinner, useThemeColor } from 'heroui-native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
+import { useFeedbackToast, useSoundOnVisible } from '@/hooks/use-feedback';
 import {
   ANIMAL_TYPES,
   animalOf,
@@ -34,7 +35,8 @@ export function ReportUnsent({ draft, onGone }: ReportUnsentProps) {
   const [status, setStatus] = useState<Status>('idle');
 
   const isSending = status === 'sending';
-  const { toast } = useToast();
+  const { toast } = useFeedbackToast();
+  useSoundOnVisible('confirmation', status === 'confirmDiscard');
   const accentForeground = useThemeColor('accent-foreground');
   const kind = animalOf(draft);
   // A typed kind has no entry in the list and is shown as typed.
@@ -49,6 +51,7 @@ export function ReportUnsent({ draft, onGone }: ReportUnsentProps) {
       await discardUnsentReport();
       toast.show({
         variant: 'success',
+        sound: 'success',
         label: 'Report sent',
         icon: <ToastIcon status="success" />,
       });
@@ -131,7 +134,7 @@ export function ReportUnsent({ draft, onGone }: ReportUnsentProps) {
 
         {status === 'confirmDiscard' ? (
           <>
-            <ThemedText role="alert">Discard this report? It cannot be recovered.</ThemedText>
+            <ThemedText aria-live="assertive">Discard this report? It cannot be recovered.</ThemedText>
             <View style={styles.actions}>
               <Button variant="secondary" onPress={() => setStatus('idle')}>
                 Cancel

@@ -15,6 +15,12 @@ function loadSource(file, dependencies = {}, privateExports = []) {
   const requireDependency = (name) => {
     if (Object.hasOwn(dependencies, name)) return dependencies[name];
     if (name === 'react/jsx-runtime') return require(name);
+    if (name === '@/lib/sounds') return loadSource('src/lib/sounds.ts');
+    // These component tests isolate feedback; dedicated sound tests exercise its real lifecycle.
+    if (name === '@/hooks/use-feedback') return {
+      useSoundOnVisible() {},
+      useFeedbackToast: () => dependencies['heroui-native'].useToast(),
+    };
     throw new Error(`Missing test dependency: ${name} in ${file}`);
   };
   new Function('require', 'module', 'exports', outputText)(requireDependency, module, module.exports);
@@ -46,6 +52,36 @@ function hooks(initialStates = [], initialRefs = []) {
       refIndex = 0;
       return component(props);
     },
+  };
+}
+
+function effectHooks(initialStates = [], initialRefs = []) {
+  const state = hooks(initialStates, initialRefs);
+  const effects = [];
+  let index = 0;
+  let pending = [];
+  return {
+    react: {
+      ...state.react,
+      useEffect(effect, deps) {
+        const slot = index++;
+        const previous = effects[slot];
+        if (!previous || !deps || deps.some((dep, i) => !Object.is(dep, previous.deps[i]))) {
+          pending.push(() => {
+            previous?.cleanup?.();
+            effects[slot] = { deps, cleanup: effect() };
+          });
+        }
+      },
+    },
+    render(component, props) {
+      index = 0;
+      pending = [];
+      const tree = state.render(component, props);
+      pending.forEach((effect) => effect());
+      return tree;
+    },
+    unmount() { effects.forEach((effect) => effect.cleanup?.()); },
   };
 }
 
@@ -90,4 +126,4 @@ const gestureHandler = {
   Gesture: { Native: () => new NativeGesture() },
 };
 
-module.exports = { loadSource, hooks, findElement, ui, native, theme, gestureHandler };
+module.exports = { loadSource, hooks, effectHooks, findElement, ui, native, theme, gestureHandler };

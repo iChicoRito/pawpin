@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '@/global.css';
 
 import { DrawerBackdropProvider, DrawerBlurTarget } from '@/components/drawer-backdrop';
+import { SoundEffects } from '@/components/sound-effects';
 import { NearbyReportsProvider } from '@/hooks/use-nearby-reports';
 import { SessionProvider, useSession } from '@/hooks/use-session';
 import { useAlertRegistration } from '@/lib/alerts';
@@ -26,6 +27,7 @@ export default function RootLayout() {
           <DrawerBlurTarget>
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <SessionProvider>
+                <SoundEffects />
                 <NearbyReportsProvider>
                   <RootNavigator />
                 </NearbyReportsProvider>

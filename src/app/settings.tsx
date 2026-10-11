@@ -153,7 +153,7 @@ export default function SettingsScreen() {
         isOpen={status === 'confirming'}
         onOpenChange={(open) => !open && status === 'confirming' && setStatus('idle')}>
         <Dialog.Portal>
-          <AppDialogOverlay />
+          <AppDialogOverlay sound="confirmation" />
           <Dialog.Content>
             <Dialog.Title>Sign out as a guest?</Dialog.Title>
             <Dialog.Description>

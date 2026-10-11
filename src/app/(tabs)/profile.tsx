@@ -29,6 +29,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
+import { useSoundOnVisible } from '@/hooks/use-feedback';
 import { fetchAlertRadius, useAlertPermission } from '@/lib/alerts';
 import { setAppearance, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
@@ -239,6 +240,7 @@ function GuestCard() {
  * reports behind for good.
  */
 function AccountConflict({ onStay }: { onStay: () => void }) {
+  useSoundOnVisible('error', true);
   const [foreground, muted] = useThemeColor(['foreground', 'muted']);
   // The card stays up while the switch runs, and says so here if it fails.
   const [switching, setSwitching] = useState<'idle' | 'working' | 'failed'>('idle');

@@ -16,7 +16,6 @@ import {
   TagGroup,
   TextField,
   useThemeColor,
-  useToast,
 } from 'heroui-native';
 import { useMemo, useRef, useState } from 'react';
 import {
@@ -36,6 +35,8 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { ReportSent, ToastIcon } from '@/components/report-sent';
 import { useSession } from '@/hooks/use-session';
+import { useFeedbackToast, useSoundOnVisible } from '@/hooks/use-feedback';
+import { playSound } from '@/lib/sounds';
 import { mapInkFor, mapStyleFor, STREET_ZOOM } from '@/lib/map';
 import {
   ANIMAL_TYPES,
@@ -83,7 +84,8 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
 
   const update = (changes: Partial<ReportDraft>) => setDraft({ ...draft, ...changes });
   const isSending = status === 'sending';
-  const { toast } = useToast();
+  const { toast } = useFeedbackToast();
+  useSoundOnVisible('error', status === 'failed' || status === 'limit');
   const scroll = useRef<ScrollView>(null);
   const mapGesture = useMemo(
     () => Gesture.Native()
@@ -112,12 +114,14 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
   async function send() {
     if (!session || sending.current) return;
     if (problems.animal || problems.other || problems.urgency) {
+      playSound('error');
       setWasTried(true);
       // These fields are in the first card.
       scroll.current?.scrollTo({ y: firstCardY.current });
       return;
     }
     if (problems.color) {
+      playSound('error');
       setWasTried(true);
       return;
     }
@@ -135,6 +139,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
       });
       toast.show({
         variant: 'success',
+        sound: 'success',
         label: 'Report sent',
         icon: <ToastIcon status="success" />,
       });
@@ -239,7 +244,10 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
                   logo={false}
                   touchRotate={false}
                   touchPitch={false}
-                  onDidFailLoadingMap={() => setMapFailed(true)}
+                  onDidFailLoadingMap={() => {
+                    playSound('error');
+                    setMapFailed(true);
+                  }}
                   onDidFinishLoadingMap={() => setIsMapReady(true)}
                   onRegionDidChange={(event) => {
                     const { center, userInteraction } = event.nativeEvent;

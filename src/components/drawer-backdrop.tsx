@@ -6,6 +6,9 @@ import {
 import { createContext, useContext, useRef, type PropsWithChildren, type RefObject } from 'react';
 import { StyleSheet, View, useColorScheme } from 'react-native';
 
+import { useSoundOnVisible } from '@/hooks/use-feedback';
+import type { SoundKind } from '@/lib/sounds';
+
 const BlurTarget = createContext<RefObject<View | null> | undefined>(undefined);
 
 export function DrawerBackdropProvider({ children }: PropsWithChildren) {
@@ -70,8 +73,10 @@ export function DrawerPopoverOverlay() {
   return <>{isOpen && <PageVeil />}<Popover.Overlay /></>;
 }
 
-export function AppDialogOverlay(props: Parameters<typeof PageVeil>[0] = {}) {
+export function AppDialogOverlay({ sound = 'error', ...props }:
+  Parameters<typeof PageVeil>[0] & { sound?: SoundKind } = {}) {
   const { isOpen } = useDialog();
+  useSoundOnVisible(sound, isOpen);
   return <>{isOpen && <PageVeil {...props} />}<Dialog.Overlay variant="default" /></>;
 }
 

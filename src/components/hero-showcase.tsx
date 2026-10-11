@@ -42,7 +42,6 @@ import {
   TextField,
   ThemeBackground,
   Typography,
-  useToast,
 } from 'heroui-native';
 import { type ReactNode, useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -55,6 +54,7 @@ import {
   DrawerPopoverOverlay,
   DrawerSelectOverlay,
 } from '@/components/drawer-backdrop';
+import { useFeedbackToast } from '@/hooks/use-feedback';
 
 const SIZES = ['sm', 'md', 'lg'] as const;
 const COLORS = ['accent', 'default', 'success', 'warning', 'danger'] as const;
@@ -683,7 +683,7 @@ function DataDisplay() {
 }
 
 function Feedback() {
-  const { toast } = useToast();
+  const { toast } = useFeedbackToast();
   return (
     <>
       <Demo name="Alert">

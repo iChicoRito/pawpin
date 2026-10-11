@@ -3,12 +3,16 @@ const test = require('node:test');
 const React = require('react');
 const { loadSource, hooks, native, findElement, ui, theme } = require('./load-source.cjs');
 
-test('drawer and dialog backdrops follow actual open state, including dismissal', () => {
+test('drawer backdrops stay silent while dialogs retain their sound and open-state behavior', () => {
   let isOpen = false;
+  const heard = [];
   const dependencies = {
     react: React,
     'react-native': native,
     'expo-blur': { BlurView: 'BlurView', BlurTargetView: 'BlurTargetView' },
+    '@/hooks/use-feedback': {
+      useSoundOnVisible(kind, visible) { if (visible) heard.push(kind); },
+    },
     'heroui-native': {
       BottomSheet: { Overlay: 'Overlay' },
       Menu: { Overlay: 'Overlay' },
@@ -24,14 +28,20 @@ test('drawer and dialog backdrops follow actual open state, including dismissal'
   };
   const exports = loadSource('src/components/drawer-backdrop.tsx', dependencies);
   for (const name of ['DrawerBottomSheetOverlay', 'DrawerMenuOverlay', 'DrawerSelectOverlay', 'DrawerPopoverOverlay', 'AppDialogOverlay']) {
+    heard.length = 0;
     isOpen = false;
     assert.equal(findElement(exports[name](), (node) => node.type === exports.PageVeil), undefined);
     isOpen = true;
     assert.ok(findElement(exports[name](), (node) => node.type === exports.PageVeil));
+    assert.deepEqual(heard, name === 'AppDialogOverlay' ? ['error'] : [], name);
     isOpen = false;
     assert.equal(findElement(exports[name](), (node) => node.type === exports.PageVeil), undefined);
     assert.ok(findElement(exports[name](), (node) => node.type === 'Overlay'));
   }
+  heard.length = 0;
+  isOpen = true;
+  exports.AppDialogOverlay({ sound: 'confirmation' });
+  assert.deepEqual(heard, ['confirmation']);
 });
 
 function sheetParts() {

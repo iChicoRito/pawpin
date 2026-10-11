@@ -32,12 +32,12 @@ const SECTIONS: readonly { heading: string; tips: readonly Tip[] }[] = [
       {
         icon: ViewIcon,
         title: 'Keep your distance at first',
-        text: 'Watch how the animal behaves before you go near. A frightened or hurt animal may bite.',
+        text: 'Watch it before you go near. A scared or hurt animal may bite.',
       },
       {
         icon: TurtleIcon,
         title: 'Move slowly and stay low',
-        text: 'No sudden moves, no loud voice. Do not stare it in the eyes or stand over it.',
+        text: 'No sudden moves or loud voice. Do not stare or stand over it.',
       },
       {
         icon: Door01Icon,
@@ -57,26 +57,26 @@ const SECTIONS: readonly { heading: string; tips: readonly Tip[] }[] = [
       {
         icon: Car01Icon,
         title: 'Watch the road',
-        text: 'Many strays are near traffic. Do not chase an animal toward cars, and do not step into the road yourself.',
+        text: 'Do not chase it toward cars or step into the road yourself.',
       },
       {
         icon: Moon02Icon,
         title: 'Never go alone at night',
-        text: 'Or into a place that feels unsafe. Tell someone where you are going.',
+        text: 'Or to a place that feels unsafe. Tell someone where you go.',
       },
     ],
   },
 ];
 
-// What to do about a bite, as three things in order. The middle one is a number, on purpose: it
-// is the part people cut short.
+// What to do about a bite, as three things in order.
 const BITE_STEPS = [
-  { icon: DropletIcon, big: null, label: 'Wash with soap and running water' },
-  { icon: Timer01Icon, big: '15 min', label: 'Keep washing that long' },
-  { icon: Hospital01Icon, big: null, label: 'Go to a clinic the same day' },
+  { icon: DropletIcon, label: 'Wash with soap and running water' },
+  { icon: Timer01Icon, label: 'Keep washing for 15 minutes' },
+  { icon: Hospital01Icon, label: 'Go to a clinic the same day' },
 ] as const;
 
 const ICON_TILE = 40;
+const STEP_MARK = 28;
 
 /**
  * How to go near a stray without getting hurt. Opened from the Profile tab, and from a report the
@@ -87,7 +87,7 @@ const ICON_TILE = 40;
  */
 export default function SafetyScreen() {
   const insets = useSafeAreaInsets();
-  const [accent, danger] = useThemeColor(['accent', 'danger']);
+  const [muted, danger] = useThemeColor(['muted', 'danger']);
 
   return (
     <ThemedView style={styles.container}>
@@ -118,7 +118,7 @@ export default function SafetyScreen() {
                     aria-label={`${tip.title}. ${tip.text}`}
                     style={styles.row}>
                     <ListGroup.ItemPrefix>
-                      <IconTile icon={tip.icon} color={accent} />
+                      <IconTile icon={tip.icon} color={muted} />
                     </ListGroup.ItemPrefix>
                     <ListGroup.ItemContent>
                       <ListGroup.ItemTitle>{tip.title}</ListGroup.ItemTitle>
@@ -142,29 +142,49 @@ export default function SafetyScreen() {
             accessible
             aria-label="If you are bitten or scratched. Wash the wound with soap and running water for 15 minutes, and go to a clinic the same day. Rabies is deadly, and the shots work only when given early."
             style={styles.card}>
+            {/* Same shape as a tip above: the icon, the bold words, the reason under them. */}
             <View style={styles.cardHeading}>
               <IconTile icon={FirstAidKitIcon} color={danger} />
-              <ThemedText style={styles.cardTitle}>If you are bitten or scratched</ThemedText>
+              <View style={styles.cardWords}>
+                <ThemedText style={styles.cardTitle}>If you are bitten or scratched</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
+                  Rabies is deadly, and the shots work only when given early.
+                </ThemedText>
+              </View>
             </View>
-            {/* One under the other, in the order to do them: the number, what to do, and for the
-                middle one how long, large at the end of its line. */}
-            <View style={styles.steps}>
-              {BITE_STEPS.map((step, index) => (
-                <ThemedView key={step.label} type="backgroundElement" style={styles.step}>
-                  <ThemedText themeColor="textSecondary" style={styles.stepNumber}>
-                    {index + 1}
-                  </ThemedText>
-                  <HugeiconsIcon icon={step.icon} size={20} color={danger} />
-                  <ThemedText type="small" style={styles.stepLabel}>
-                    {step.label}
-                  </ThemedText>
-                  {step.big && <ThemedText style={styles.stepBig}>{step.big}</ThemedText>}
-                </ThemedView>
-              ))}
+            <Separator />
+            {/* One under the other, joined by a line: the line is what says "in this order". The
+                marks sit under the icon above, the words under the title. */}
+            <View>
+              {BITE_STEPS.map((step, index) => {
+                const last = index === BITE_STEPS.length - 1;
+                return (
+                  <View key={step.label} style={styles.step}>
+                    <View aria-hidden style={styles.stepRail}>
+                      <View style={styles.stepMark}>
+                        <View
+                          style={[
+                            StyleSheet.absoluteFill,
+                            styles.iconTint,
+                            { backgroundColor: danger },
+                          ]}
+                        />
+                        <HugeiconsIcon
+                          icon={step.icon}
+                          size={16}
+                          color={danger}
+                          strokeWidth={1.8}
+                        />
+                      </View>
+                      {!last && <View style={[styles.stepLine, { backgroundColor: danger }]} />}
+                    </View>
+                    <ThemedText type="small" style={[styles.stepLabel, !last && styles.stepGap]}>
+                      {step.label}
+                    </ThemedText>
+                  </View>
+                );
+              })}
             </View>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.regular}>
-              Rabies is deadly, and the shots work only when given early.
-            </ThemedText>
           </Card>
 
           <Card
@@ -173,7 +193,7 @@ export default function SafetyScreen() {
             aria-label="If the animal is badly hurt or aggressive, do not try alone. Call your city’s veterinary office or a local rescue group."
             style={styles.card}>
             <View style={styles.cardHeading}>
-              <IconTile icon={Call02Icon} color={accent} />
+              <IconTile icon={Call02Icon} color={muted} />
               <View style={styles.cardWords}>
                 <ThemedText style={styles.cardTitle}>
                   Badly hurt or aggressive? Not alone.
@@ -259,35 +279,39 @@ const styles = StyleSheet.create({
     gap: Spacing.half,
   },
   cardTitle: {
-    flex: 1,
     fontWeight: 600,
   },
-  steps: {
-    gap: Spacing.two,
-  },
-  // One line each: the number, the icon, the words, and room at the end for "15 min".
   step: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two + Spacing.one,
-    padding: Spacing.two + Spacing.one,
-    borderRadius: 12,
+    gap: Spacing.three,
   },
-  // Takes what is left, so long words wrap instead of pushing the time off the card.
+  // As wide as the icon tile above, so the marks sit under its middle.
+  stepRail: {
+    width: ICON_TILE,
+    alignItems: 'center',
+  },
+  stepMark: {
+    width: STEP_MARK,
+    height: STEP_MARK,
+    borderRadius: STEP_MARK / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  // Fills whatever height the words beside it take, down to the next mark.
+  stepLine: {
+    flex: 1,
+    width: 2,
+    opacity: 0.25,
+  },
+  // Takes what is left, so long words wrap inside the card. The top padding puts a single line
+  // level with the middle of its mark.
   stepLabel: {
     flex: 1,
-    fontWeight: 400,
+    paddingTop: (STEP_MARK - 20) / 2,
   },
-  stepNumber: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: 600,
-    fontVariant: ['tabular-nums'],
-  },
-  stepBig: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: 700,
-    fontVariant: ['tabular-nums'],
+  // The space between steps is under the words, so the line beside them runs through it.
+  stepGap: {
+    paddingBottom: Spacing.three,
   },
 });

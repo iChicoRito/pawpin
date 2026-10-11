@@ -7,6 +7,7 @@ import { AppDialogOverlay } from '@/components/drawer-backdrop';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
+import { useSoundOnVisible } from '@/hooks/use-feedback';
 
 type GoogleSignInDialogProps = {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export function GoogleSignInDialog({
   }
 
   const isConflict = status === 'conflict';
+  useSoundOnVisible('error', isOpen && isConflict);
 
   return (
     <Dialog isOpen={isOpen} onOpenChange={(open) => !open && close()}>

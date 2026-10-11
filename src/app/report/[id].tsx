@@ -4,6 +4,7 @@ import CancelCircleIcon from '@hugeicons/core-free-icons/CancelCircleIcon';
 import CheckmarkCircle02Icon from '@hugeicons/core-free-icons/CheckmarkCircle02Icon';
 import FirstAidKitIcon from '@hugeicons/core-free-icons/FirstAidKitIcon';
 import Flag02Icon from '@hugeicons/core-free-icons/Flag02Icon';
+import InformationCircleIcon from '@hugeicons/core-free-icons/InformationCircleIcon';
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import PaintBoardIcon from '@hugeicons/core-free-icons/PaintBoardIcon';
 import PawPrintIcon from '@hugeicons/core-free-icons/PawPrintIcon';
@@ -27,7 +28,6 @@ import {
   Spinner,
   Tabs,
   useThemeColor,
-  useToast,
   type MenuTriggerRef,
 } from 'heroui-native';
 import {
@@ -53,6 +53,7 @@ import { svg as wazeLogo } from 'thesvg/waze';
 import { BrandIcon } from '@/components/brand-icon';
 import { AppDialogOverlay, PageVeil } from '@/components/drawer-backdrop';
 import { GoogleSignInDialog } from '@/components/google-sign-in-dialog';
+import { useFeedbackToast } from '@/hooks/use-feedback';
 import { ReportPlaceMap } from '@/components/report-place-map';
 import { ReportUrgencyCard } from '@/components/report-urgency';
 import { ToastIcon } from '@/components/report-sent';
@@ -150,7 +151,7 @@ export default function ReportDetailScreen() {
   const window = useWindowDimensions();
   const { reports, place, reload } = useNearbyReports();
   const { session, isGuest, isAdmin } = useSession();
-  const { toast } = useToast();
+  const { toast } = useFeedbackToast();
   // Which rescue button is waiting for the database. The others are held until it answers.
   const [busy, setBusy] = useState<
     | 'claim'
@@ -549,6 +550,24 @@ export default function ReportDetailScreen() {
                         <Trait icon={detail.icon} label={detail.label} value={detail.value} />
                       </Fragment>
                     ))}
+                    {isMyClaim && (
+                      <>
+                        <Separator className="mx-4" />
+                        <View style={styles.safetyFooter}>
+                          <Button
+                            variant="tertiary"
+                            style={styles.safetyButton}
+                            onPress={() => router.push('/safety')}>
+                            <HugeiconsIcon
+                              icon={InformationCircleIcon}
+                              size={18}
+                              color={foreground}
+                            />
+                            <Button.Label>Read the safety tips</Button.Label>
+                          </Button>
+                        </View>
+                      </>
+                    )}
                   </ListGroup>
                 </Section>
               </>
@@ -561,13 +580,6 @@ export default function ReportDetailScreen() {
               scrolls with the page and is not held over it. A finished report has no buttons:
               only the room they would have taken, so the page does not end against the edge. */}
           <View style={[styles.actions, { paddingBottom: insets.bottom + Spacing.four }]}>
-            {/* For the rescuer who is going, for as long as they are: a toast would be gone before
-                they got there. Quiet, above the two buttons, so it is not taken for a third. */}
-            {isMyClaim && (
-              <Button variant="tertiary" size="sm" onPress={() => router.push('/safety')}>
-                Read the safety tips
-              </Button>
-            )}
             {/* One line, two buttons at most: how to get there, and the one thing to do next. */}
             {!hasEnded && (
               <View style={styles.actionsRow}>
@@ -773,7 +785,7 @@ export default function ReportDetailScreen() {
       {/* A status change is seen by everyone, and an outcome cannot be undone: ask once. */}
       <Dialog isOpen={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <Dialog.Portal>
-          <AppDialogOverlay page={page} isDark={isDark} />
+          <AppDialogOverlay page={page} isDark={isDark} sound="confirmation" />
           <Dialog.Content>
             <Dialog.Title>{CONFIRMATIONS[pending].title}</Dialog.Title>
             <Dialog.Description>
@@ -1229,5 +1241,11 @@ const styles = StyleSheet.create({
   traitValue: {
     fontWeight: 600,
     textAlign: 'right',
+  },
+  safetyFooter: {
+    padding: Spacing.four,
+  },
+  safetyButton: {
+    minHeight: 48,
   },
 });

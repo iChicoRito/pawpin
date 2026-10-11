@@ -18,6 +18,7 @@ import {
   useAlertPermission,
 } from '@/lib/alerts';
 import { RADIUS_CHOICES } from '@/lib/nearby';
+import { useSoundOnVisible } from '@/hooks/use-feedback';
 
 const RADIO_SIZE = 22;
 
@@ -34,6 +35,7 @@ export default function AlertsScreen() {
   // `null` until the saved distance is read.
   const [radiusM, setRadiusM] = useState<number | null>(null);
   const [failure, setFailure] = useState<'load' | 'save' | null>(null);
+  useSoundOnVisible('error', failure);
 
   function load(id: string) {
     fetchAlertRadius(id)

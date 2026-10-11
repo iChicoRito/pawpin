@@ -24,6 +24,9 @@ export const PAW_IMAGES = {
   'paw-just_sighted': require('../../assets/images/pins/paw-just_sighted.png'),
 };
 
+/** A plain red dot distinguishes the viewer from paw-shaped urgency pins. */
+export const VIEWER_COLOR = '#D32F2F';
+
 /** Close enough to tell one gate or corner from the next. */
 export const STREET_ZOOM = 17;
 

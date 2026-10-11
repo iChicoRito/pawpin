@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { createContext, use, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import { AppState } from 'react-native';
 
@@ -7,6 +8,7 @@ import { saveLastPlace } from '@/lib/alerts';
 import { DEFAULT_RADIUS_M, fetchNearbyReports, type NearbyReport } from '@/lib/nearby';
 import type { ReportPlace } from '@/lib/reports';
 import { supabase } from '@/lib/supabase';
+import { playSound } from '@/lib/sounds';
 
 /** How long to wait for the phone to find itself before saying it failed. */
 const LOCATION_WAIT_MS = 15_000;
@@ -94,6 +96,7 @@ export function NearbyReportsProvider({ children }: PropsWithChildren) {
         if (request === latest.current) {
           setFailure('location');
           setStatus('failed');
+          playSound('error');
         }
         return;
       }
@@ -118,6 +121,7 @@ export function NearbyReportsProvider({ children }: PropsWithChildren) {
       setPlace(here);
       setFailure('network');
       setStatus('failed');
+      playSound('error');
     }
   }
 
@@ -133,12 +137,15 @@ export function NearbyReportsProvider({ children }: PropsWithChildren) {
   // Live changes: a claim, a give-up, an outcome, or a new report on any phone changes a row in
   // reports. Each change runs the same nearby search again, so distance, order, and "still active"
   // stay the database's answer. The location is not read again.
-  const hasPlace = place !== null;
   useEffect(() => {
-    if (!hasPlace) return;
+    if (!userId) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // Changes often come in a burst. One search, half a second after the last of them.
-    const onChange = () => {
+    const onChange = (payload?: RealtimePostgresChangesPayload<{ id: string }>) => {
+      // Sound each insert before debouncing the search. Same user's next report has a new ID.
+      if (payload?.eventType === 'INSERT' && typeof payload.new.id === 'string') {
+        playSound('notification', `report:${payload.new.id}`);
+      }
       clearTimeout(timer);
       timer = setTimeout(() => reloadNow.current(), LIVE_WAIT_MS);
     };
@@ -155,7 +162,7 @@ export function NearbyReportsProvider({ children }: PropsWithChildren) {
       appState.remove();
       supabase.removeChannel(channel);
     };
-  }, [hasPlace]);
+  }, [userId]);
 
   return (
     <NearbyReportsContext

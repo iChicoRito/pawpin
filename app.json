@@ -67,6 +67,15 @@
           "color": "#F5BC1E",
           "defaultChannel": "default"
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
       ]
     ],
     "experiments": {

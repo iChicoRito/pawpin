@@ -16,6 +16,7 @@ function startup(session, isLoading) {
     '@/global.css': {},
     '@/components/animated-icon': { AnimatedSplashOverlay: 'SplashOverlay' },
     '@/components/drawer-backdrop': {},
+    '@/components/sound-effects': {},
     '@/hooks/use-nearby-reports': {},
     '@/hooks/use-session': { useSession: () => ({ session, isLoading }) },
     '@/lib/alerts': { useAlertRegistration() {} },
