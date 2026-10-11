@@ -1,12 +1,11 @@
-import AlertCircleIcon from '@hugeicons/core-free-icons/AlertCircleIcon';
-import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Image } from 'expo-image';
-import { Button, useThemeColor } from 'heroui-native';
+import { Button, useToast } from 'heroui-native';
 import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
+import { ToastIcon } from '@/components/report-sent';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -18,25 +17,28 @@ type Method = 'google' | 'guest';
 
 export default function WelcomeScreen() {
   const [signingIn, setSigningIn] = useState<Method | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
   const isSigningIn = useRef(false);
-  const danger = useThemeColor('danger');
+  const { toast } = useToast();
   const colorScheme = useColorScheme();
 
   async function signIn(method: Method) {
     if (isSigningIn.current) return;
     isSigningIn.current = true;
     setSigningIn(method);
-    setFailure(null);
     try {
       await (method === 'google' ? signInWithGoogle() : signInAsGuest());
       // On success the route guard in the root layout swaps this screen for the tabs.
     } catch (error) {
-      // The screen shows a short message; the real cause goes to the dev log.
+      // The toast shows a short message; the real cause goes to the dev log.
       console.warn('Sign-in failed:', error);
-      setFailure(error instanceof GuestSignInError
-        ? error.message
-        : 'Could not sign you in. Check your connection and try again.');
+      toast.show({
+        variant: 'danger',
+        icon: <ToastIcon status="danger" />,
+        label: 'Could not sign you in',
+        description: error instanceof GuestSignInError
+          ? error.message
+          : 'Check your connection and try again.',
+      });
     } finally {
       isSigningIn.current = false;
       setSigningIn(null);
@@ -58,15 +60,6 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={styles.actions}>
-          {failure && (
-            // Red marks the icon only. As small text on white it is 3.6:1, too faint to read.
-            <View role="alert" style={styles.error}>
-              <HugeiconsIcon icon={AlertCircleIcon} size={20} color={danger} />
-              <ThemedText type="small" style={styles.errorText}>
-                {failure}
-              </ThemedText>
-            </View>
-          )}
           <Button size="lg" isDisabled={signingIn !== null} onPress={() => signIn('google')}>
             <BrandIcon xml={GOOGLE_LOGO} size={22} />
             <Button.Label>
@@ -114,13 +107,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     aspectRatio: 735 / 253,
-  },
-  error: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  errorText: {
-    flex: 1,
   },
   note: {
     textAlign: 'center',

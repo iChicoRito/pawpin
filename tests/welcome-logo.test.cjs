@@ -6,14 +6,13 @@ test('welcome logo follows theme changes and stays centered without stretching',
   let scheme = 'light';
   const state = hooks();
   const { default: Welcome } = loadSource('src/app/welcome.tsx', {
-    '@hugeicons/core-free-icons/AlertCircleIcon': {},
-    '@hugeicons/react-native': { HugeiconsIcon: 'Icon' },
     'expo-image': { Image: 'Image' },
     'heroui-native': ui,
     react: state.react,
     'react-native': native,
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
     '@/components/brand-icon': { BrandIcon: 'BrandIcon', GOOGLE_LOGO: '' },
+    '@/components/report-sent': { ToastIcon: 'ToastIcon' },
     '@/components/themed-text': { ThemedText: 'ThemedText' },
     '@/components/themed-view': { ThemedView: 'ThemedView' },
     '@/constants/theme': theme,
