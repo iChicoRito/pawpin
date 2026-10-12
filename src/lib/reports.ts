@@ -185,6 +185,20 @@ export async function submitReport(draft: ReportDraft, userId: string) {
   if (earlier.error) throw earlier.error;
   if (earlier.data) return [];
 
+  if (
+    draft.photos.length < 1 || draft.photos.length > MAX_PHOTOS ||
+    !animalOf(draft).trim() || animalOf(draft).length > 40 ||
+    (draft.animalType === 'other' && draft.otherAnimal !== undefined && !draft.otherAnimal.trim()) ||
+    (draft.color === 'other' && draft.otherColor !== undefined && !draft.otherColor.trim()) ||
+    colorOf(draft).length > 40 || draft.landmark.trim().length > 120 ||
+    (draft.size !== '' && !SIZES.some(({ value }) => value === draft.size)) ||
+    (draft.condition !== '' && !CONDITIONS.some(({ value }) => value === draft.condition)) ||
+    !URGENCIES.some(({ value }) => value === draft.urgency) ||
+    !Number.isFinite(draft.latitude) || Math.abs(draft.latitude) > 90 ||
+    !Number.isFinite(draft.longitude) || Math.abs(draft.longitude) > 180 ||
+    (draft.accuracyM !== null && (!Number.isFinite(draft.accuracyM) || draft.accuracyM < 0))
+  ) throw new Error('Invalid report input.');
+
   const links: string[] = [];
   const sizes: { before: number; after: number }[] = [];
 

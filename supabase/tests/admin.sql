@@ -20,14 +20,14 @@ select set_config('test.before', (select row_to_json(t)::text from (
 
 -- Far out at sea, so no real user is alerted about these reports.
 -- 1: waiting, flagged. 2: someone on the way. 3: already rescued.
-insert into public.reports (id, reporter_id, location, urgency, status)
+insert into public.reports (id, reporter_id, location, urgency, status, animal_type, photos)
 values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-00000000000a',
-    'SRID=4326;POINT(130.0 5.0)', 'critical', 'reported'),
+    'SRID=4326;POINT(130.0 5.0)', 'critical', 'reported', 'dog', array['https://example.invalid/test.jpg']),
   ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-00000000000a',
-    'SRID=4326;POINT(130.0 5.0)', 'critical', 'responding'),
+    'SRID=4326;POINT(130.0 5.0)', 'critical', 'responding', 'cat', array['https://example.invalid/test.jpg']),
   ('00000000-0000-4000-8000-0000000000a3', '00000000-0000-4000-8000-00000000000a',
-    'SRID=4326;POINT(130.0 5.0)', 'critical', 'rescued');
+    'SRID=4326;POINT(130.0 5.0)', 'critical', 'rescued', 'dog', array['https://example.invalid/test.jpg']);
 insert into public.claims (report_id, rescuer_id, status) values
   ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-00000000000b', 'on_the_way');
 insert into public.flags (report_id, flagged_by, reason) values

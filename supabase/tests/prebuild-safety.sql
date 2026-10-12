@@ -17,9 +17,9 @@ declare
 begin
   foreach initial_status in array array['responding', 'rescued', 'not_found', 'closed']::public.report_status[] loop
     begin
-      insert into public.reports (reporter_id, location, urgency, status)
+      insert into public.reports (reporter_id, location, urgency, status, animal_type, photos)
       values ('00000000-0000-4000-8000-00000000000a',
-        'SRID=4326;POINT(121.0 14.6)', 'critical', initial_status);
+        'SRID=4326;POINT(121.0 14.6)', 'critical', initial_status, 'dog', array['https://example.invalid/test.jpg']);
       raise exception 'FAIL: a new report started as %', initial_status;
     exception when insufficient_privilege then null;
     end;
@@ -39,11 +39,11 @@ begin
 end;
 $$;
 
-insert into public.reports (id, reporter_id, location, urgency) values
+insert into public.reports (id, reporter_id, location, urgency, animal_type, photos) values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-00000000000a',
-    'SRID=4326;POINT(121.0 14.6)', 'critical'),
+    'SRID=4326;POINT(121.0 14.6)', 'critical', 'dog', array['https://example.invalid/test.jpg']),
   ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-00000000000a',
-    'SRID=4326;POINT(121.0 14.6)', 'just_sighted');
+    'SRID=4326;POINT(121.0 14.6)', 'just_sighted', 'cat', array['https://example.invalid/test.jpg']);
 
 do $$
 declare
