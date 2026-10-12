@@ -5,11 +5,11 @@ insert into auth.users (id, is_anonymous) values
   ('00000000-0000-4000-8000-00000000000a', false),  -- the reporter
   ('00000000-0000-4000-8000-00000000000b', false);  -- a rescuer
 
-insert into public.reports (id, reporter_id, location, urgency, animal_type, landmark) values
+insert into public.reports (id, reporter_id, location, urgency, animal_type, landmark, photos) values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-00000000000a',
-    'SRID=4326;POINT(121.0 14.6)', 'critical', 'dog', 'public market'),
+    'SRID=4326;POINT(121.0 14.6)', 'critical', 'dog', 'public market', array['https://example.invalid/rollback-fixture.jpg']),
   ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-00000000000a',
-    'SRID=4326;POINT(121.0 14.6)', 'just_sighted', 'cat', null);
+    'SRID=4326;POINT(121.0 14.6)', 'just_sighted', 'cat', null, array['https://example.invalid/rollback-fixture.jpg']);
 
 set local role authenticated;
 

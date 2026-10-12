@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
 import { supabase } from '@/lib/supabase';
+import { switchAccountWithAlerts } from '@/lib/session-actions';
 
 // On web the sign-in opens in a popup; this hands the result back to the page that opened it. No-op on phones.
 WebBrowser.maybeCompleteAuthSession();
@@ -14,11 +15,25 @@ export type AuthFlowError = Error & { code?: string };
 /** Reads `?a=1&b=2` and `#a=1&b=2` alike. Supabase uses either, depending on the outcome. */
 function readParams(url: string) {
   const params: Record<string, string> = {};
-  for (const pair of url.split(/[?#]/).slice(1).join('&').split('&')) {
-    const [key, value = ''] = pair.split('=');
-    if (key) params[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, ' '));
+  try {
+    for (const pair of url.split(/[?#]/).slice(1).join('&').split('&')) {
+      const [key, value = ''] = pair.split('=');
+      if (key) params[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, ' '));
+    }
+  } catch {
+    return {};
   }
   return params;
+}
+
+function expectedLink(url: string) {
+  try {
+    new URL(url);
+    // Compare the raw target too: URL normalization must not admit path aliases or credentials.
+    return url.split(/[?#]/, 1)[0] === redirectTo.split(/[?#]/, 1)[0];
+  } catch {
+    return false;
+  }
 }
 
 /** How long to wait for the return link after the browser reports closed. */
@@ -31,13 +46,13 @@ async function finishInBrowser(url: string) {
   let onReturnLink: (returnUrl: string) => void = () => {};
   const returnLink = new Promise<string>((resolve) => (onReturnLink = resolve));
   const subscription = Linking.addEventListener('url', (event) => {
-    if (/[?#&](code|error)=/.test(event.url)) onReturnLink(event.url);
+    if (expectedLink(event.url) && /[?#&](code|error)=/.test(event.url)) onReturnLink(event.url);
   });
 
   let returnUrl: string | null;
   try {
     const browser = WebBrowser.openAuthSessionAsync(url, redirectTo).then((result) =>
-      result.type === 'success' ? result.url : null
+      result.type === 'success' && expectedLink(result.url) ? result.url : null
     );
     returnUrl =
       (await Promise.race([browser, returnLink])) ??
@@ -65,12 +80,14 @@ async function finishInBrowser(url: string) {
 }
 
 export async function signInWithGoogle() {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo, skipBrowserRedirect: true },
+  return switchAccountWithAlerts(async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    });
+    if (error) throw error;
+    return finishInBrowser(data.url);
   });
-  if (error) throw error;
-  return finishInBrowser(data.url);
 }
 
 /** Turns the current guest into a Google user. The user id stays the same, so their reports stay theirs. */

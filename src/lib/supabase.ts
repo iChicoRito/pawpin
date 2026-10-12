@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { clientAuthStorage } from './auth-read-gate';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_KEY;
@@ -33,8 +33,7 @@ async function fetchWithDeadline(input: RequestInfo | URL, init?: RequestInit) {
 export const supabase = createClient(url, key, {
   global: { fetch: fetchWithDeadline },
   auth: {
-    // The static web build runs once outside a browser, where AsyncStorage has nothing to write to.
-    storage: typeof window === 'undefined' ? undefined : AsyncStorage,
+    storage: clientAuthStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

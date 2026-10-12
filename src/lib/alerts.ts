@@ -13,6 +13,38 @@ import { playSound } from '@/lib/sounds';
 /** Android sorts alerts into channels. PawPin has the one. */
 const CHANNEL = 'default';
 const CARD_KEY = 'pawpin.alerts-card-dismissed';
+let registrationQueue: Promise<unknown> = Promise.resolve();
+let registrationPaused = false;
+let registrationEpoch = 0;
+let savedRegistration: string | null = null;
+
+function serializeRegistration<T>(action: () => Promise<T>): Promise<T> {
+  const next = registrationQueue.then(action);
+  registrationQueue = next.catch(() => {});
+  return next;
+}
+
+export function pauseAlertRegistration(paused: boolean) {
+  registrationPaused = paused;
+  registrationEpoch++;
+  savedRegistration = null;
+}
+
+async function currentAccountIs(userId: string) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data.session?.user.id === userId;
+}
+
+/** Detachment must finish while the outgoing account's credentials still exist. */
+export function unregisterForAlerts(userId: string) {
+  return serializeRegistration(async () => {
+    if (!(await currentAccountIs(userId))) throw new Error('The current account changed.');
+    const { error } = await supabase.from('profiles').update({ push_token: null }).eq('id', userId);
+    if (error) throw error;
+    savedRegistration = null;
+  });
+}
 
 // Foreground reports share realtime's ID to avoid a system sound plus the app's pop.
 // Android can suppress heads-up banners without system audio; the notification list remains.
@@ -44,18 +76,32 @@ async function ensureChannel() {
  * the app opens and each time it comes back to the front, so a pass that changed is saved again.
  * A failure is only logged: alerts are an extra, and must not stop the app from starting.
  */
-export async function registerForAlerts(userId: string) {
+export async function registerForAlerts(userId: string, isCurrent = () => true) {
+  if (registrationPaused) return;
+  const epoch = registrationEpoch;
+  const valid = () => !registrationPaused && epoch === registrationEpoch && isCurrent();
   try {
-    await ensureChannel();
-    const { granted } = await Notifications.getPermissionsAsync();
-    if (!granted) return;
-    // Reads the project id from app.json (`extra.eas.projectId`) and throws when there is none.
-    const { data: token } = await Notifications.getExpoPushTokenAsync();
-    const { error } = await supabase
-      .from('profiles')
-      .update({ push_token: token })
-      .eq('id', userId);
-    if (error) throw error;
+    await serializeRegistration(async () => {
+      if (!valid()) return;
+      await ensureChannel();
+      const permission = await Notifications.getPermissionsAsync();
+      if (!valid()) return;
+      if (!permission.granted) {
+        savedRegistration = null;
+        return;
+      }
+      // Reads the project id from app.json (`extra.eas.projectId`) and throws when there is none.
+      const { data: token } = await Notifications.getExpoPushTokenAsync();
+      if (!valid() || !(await currentAccountIs(userId)) || !valid()) return;
+      const key = JSON.stringify([userId, token, permission]);
+      if (savedRegistration === key) return;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ push_token: token })
+        .eq('id', userId);
+      if (error) throw error;
+      if (valid()) savedRegistration = key;
+    });
   } catch (error) {
     console.warn('Saving the alert pass failed:', error);
   }
@@ -65,14 +111,19 @@ export async function registerForAlerts(userId: string) {
  * Saves where the user was at their last fresh location read. New reports alert the people whose
  * last place is near. Only logged on failure, so it can never fail the nearby search it rides on.
  */
-export async function saveLastPlace(userId: string, place: ReportPlace) {
+export async function saveLastPlace(userId: string, place: ReportPlace, isCurrent = () => true) {
+  const epoch = registrationEpoch;
+  const valid = () => !registrationPaused && epoch === registrationEpoch && isCurrent();
   try {
-    const { error } = await supabase
-      .from('profiles')
-      // PostGIS points are longitude first, then latitude.
-      .update({ last_location: `SRID=4326;POINT(${place.longitude} ${place.latitude})` })
-      .eq('id', userId);
-    if (error) throw error;
+    await serializeRegistration(async () => {
+      if (!valid() || !(await currentAccountIs(userId)) || !valid()) return;
+      const { error } = await supabase
+        .from('profiles')
+        // PostGIS points are longitude first, then latitude.
+        .update({ last_location: `SRID=4326;POINT(${place.longitude} ${place.latitude})` })
+        .eq('id', userId);
+      if (error) throw error;
+    });
   } catch (error) {
     console.warn('Saving the last place failed:', error);
   }
@@ -134,19 +185,27 @@ export function useAlertPermission() {
 /** Keeps the signed-in user's alert pass saved while the app is open. */
 export function useAlertRegistration(userId: string | undefined) {
   useEffect(() => {
+    savedRegistration = null;
     if (!userId) return;
-    registerForAlerts(userId);
+    let active = true;
+    const register = () => registerForAlerts(userId, () => active);
+    register();
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') registerForAlerts(userId);
+      if (state === 'active') register();
     });
-    return () => subscription.remove();
+    return () => {
+      active = false;
+      savedRegistration = null;
+      subscription.remove();
+    };
   }, [userId]);
 }
 
 /** The report an alert is about, or `null` when it names none. */
 export function reportIdOf(response: Notifications.NotificationResponse | null | undefined) {
   const id = response?.notification.request.content.data?.reportId;
-  return typeof id === 'string' ? id : null;
+  return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    ? id : null;
 }
 
 /**

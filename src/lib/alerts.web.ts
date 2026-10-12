@@ -7,7 +7,11 @@ import type { ReportPlace } from '@/lib/reports';
 
 export async function registerForAlerts(_userId: string) {}
 
-export async function saveLastPlace(_userId: string, _place: ReportPlace) {}
+export async function unregisterForAlerts(_userId: string) {}
+
+export function pauseAlertRegistration(_paused: boolean) {}
+
+export async function saveLastPlace(_userId: string, _place: ReportPlace, _isCurrent = () => true) {}
 
 export async function fetchAlertRadius(_userId: string): Promise<number> {
   throw new Error('Alerts work in the phone app.');

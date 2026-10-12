@@ -48,7 +48,7 @@ export function ReportUnsent({ draft, onGone }: ReportUnsentProps) {
     setStatus('sending');
     try {
       await submitReport(draft, session.user.id);
-      await discardUnsentReport();
+      await discardUnsentReport(session.user.id, draft.id);
       toast.show({
         variant: 'success',
         sound: 'success',
@@ -73,7 +73,7 @@ export function ReportUnsent({ draft, onGone }: ReportUnsentProps) {
 
   async function discard() {
     try {
-      await discardUnsentReport();
+      if (session) await discardUnsentReport(session.user.id, draft.id);
     } catch (error) {
       console.warn('Discarding the kept report failed:', error);
     }

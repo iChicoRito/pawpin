@@ -14,7 +14,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
 import { initialsOf } from '@/lib/format';
-import { supabase } from '@/lib/supabase';
+import { signOutWithAlerts } from '@/lib/session-actions';
 
 type Status = 'idle' | 'confirming' | 'working' | 'failed';
 
@@ -33,7 +33,7 @@ export default function SettingsScreen() {
 
   async function signOut() {
     setStatus('working');
-    const { error } = await supabase.auth.signOut();
+    const { error } = await signOutWithAlerts();
     // On success the route guard in the root layout swaps this screen for the welcome screen.
     if (error) {
       console.warn('Sign-out failed:', error);

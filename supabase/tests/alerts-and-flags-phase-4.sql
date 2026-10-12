@@ -12,11 +12,12 @@ update public.profiles set push_token = 'tok-a' where id = '00000000-0000-4000-8
 update public.profiles set push_token = 'tok-b' where id = '00000000-0000-4000-8000-00000000000b';
 
 -- Far out at sea, so no real user is near enough to be alerted about these reports.
-insert into public.reports (id, reporter_id, location, urgency, animal_type)
+insert into public.reports (id, reporter_id, location, urgency, animal_type, photos)
 select ('00000000-0000-4000-8000-0000000000a' || n)::uuid,
   case when n = 6 then '00000000-0000-4000-8000-00000000000c'
     else '00000000-0000-4000-8000-00000000000a' end::uuid,
-  'SRID=4326;POINT(130.0 5.0)', 'critical', case when n = 2 then 'cat' else 'dog' end
+  'SRID=4326;POINT(130.0 5.0)', 'critical', case when n = 2 then 'cat' else 'dog' end,
+  array['https://example.invalid/rollback-fixture.jpg']
 from generate_series(1, 7) n;
 
 -- The message waiting for a phone about a report, or null.

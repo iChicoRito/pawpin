@@ -6,6 +6,7 @@ const { loadSource } = require('./load-source.cjs');
 function alertsApi({ granted = true, token = async () => ({ data: 'ExponentPushToken[abc]' }), saveError = null } = {}) {
   const updates = [];
   const supabase = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'user' } } }, error: null }) },
     from: (table) => ({
       update: (values) => ({
         eq: async (column, value) => {
@@ -79,7 +80,31 @@ const tapped = (data) => ({ notification: { request: { identifier: 'n1', content
 
 test('tapped alert names its report', () => {
   const { api } = alertsApi();
-  assert.equal(api.reportIdOf(tapped({ reportId: 'abc' })), 'abc');
+  const id = '93f50c71-43c0-4dce-9e13-e8be6365ac78';
+  assert.equal(api.reportIdOf(tapped({ reportId: id })), id);
+  assert.equal(api.reportIdOf(tapped({ reportId: 'abc' })), null);
+  assert.equal(api.reportIdOf(tapped({ reportId: '../settings' })), null);
+});
+
+test('unchanged registration writes once, including overlapping foreground calls', async () => {
+  const { api, updates } = alertsApi();
+  await Promise.all([api.registerForAlerts('user'), api.registerForAlerts('user')]);
+  await api.registerForAlerts('user');
+  assert.equal(updates.length, 1);
+});
+
+test('invalidated location save cannot update even when auth still names old account', async () => {
+  const { api, updates } = alertsApi();
+  await api.saveLastPlace('user', { latitude: 14, longitude: 121 }, () => false);
+  assert.deepEqual(updates, []);
+});
+
+test('unregister clears only the current profile and propagates detach failures', async () => {
+  const { api, updates } = alertsApi();
+  await api.unregisterForAlerts('user');
+  assert.deepEqual(updates, [{ table: 'profiles', values: { push_token: null }, column: 'id', value: 'user' }]);
+  const failed = alertsApi({ saveError: new Error('Offline') });
+  await assert.rejects(failed.api.unregisterForAlerts('user'), /Offline/);
 });
 
 test('alert without a report id opens nothing', () => {

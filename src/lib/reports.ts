@@ -156,6 +156,7 @@ const PHOTO_BUCKET = 'report-photos';
 /** Wide enough to recognise an animal, small enough to send on a weak signal. */
 const PHOTO_MAX_WIDTH = 1280;
 const PHOTO_QUALITY = 0.7;
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 /** The message of the error thrown when the database refuses a guest's fourth report in 24 hours. */
 export const GUEST_LIMIT_ERROR = 'guest_report_limit';
@@ -199,12 +200,23 @@ export async function submitReport(draft: ReportDraft, userId: string) {
     (draft.accuracyM !== null && (!Number.isFinite(draft.accuracyM) || draft.accuracyM < 0))
   ) throw new Error('Invalid report input.');
 
+  await flushReleasedUploads(userId);
+  const reservation = await supabase.rpc('prepare_report_upload', {
+    p_report_id: draft.id,
+    p_photo_count: draft.photos.length,
+  });
+  if (reservation.error) {
+    throw new Error(reservation.error.message.includes(GUEST_LIMIT_ERROR) ? GUEST_LIMIT_ERROR : reservation.error.message);
+  }
+  if (reservation.data?.saved) return [];
+
   const links: string[] = [];
   const sizes: { before: number; after: number }[] = [];
 
   for (const [index, photo] of draft.photos.entries()) {
     const shrunk = await shrinkPhoto(photo.uri);
     const bytes = await new File(shrunk.uri).arrayBuffer();
+    if (bytes.byteLength > PHOTO_MAX_BYTES) throw new Error('Photo exceeds upload limit.');
     // The same path on every try, so sending again overwrites the file and leaves no second copy.
     const path = `${userId}/${draft.id}/${index + 1}.jpg`;
     const { error } = await supabase.storage
@@ -240,28 +252,69 @@ export async function submitReport(draft: ReportDraft, userId: string) {
 }
 
 const UNSENT_KEY = 'pawpin.unsent-report';
+const RELEASE_KEY = 'pawpin.upload-releases';
+type ReleasedUpload = { userId: string; reportId: string };
+let releaseQueue: Promise<unknown> = Promise.resolve();
+
+function withReleaseQueue<T>(operation: () => Promise<T>): Promise<T> {
+  const result = releaseQueue.then(operation);
+  releaseQueue = result.catch(() => {});
+  return result;
+}
+
+async function readReleasedUploads(): Promise<ReleasedUpload[]> {
+  const raw = await AsyncStorage.getItem(RELEASE_KEY);
+  if (!raw) return [];
+  const items = JSON.parse(raw);
+  if (!Array.isArray(items) || items.some((item) => typeof item?.userId !== 'string' || typeof item?.reportId !== 'string')) {
+    throw new Error('Invalid upload release metadata.');
+  }
+  return items;
+}
+
+async function flushReleasedUploads(userId: string) {
+  await withReleaseQueue(async () => {
+    let items = await readReleasedUploads();
+    for (const item of items.filter((entry) => entry.userId === userId)) {
+      const { error } = await supabase.rpc('release_report_upload', { p_report_id: item.reportId });
+      if (error) throw new Error(error.message);
+      items = items.filter((entry) => entry !== item);
+      await AsyncStorage.setItem(RELEASE_KEY, JSON.stringify(items));
+    }
+  });
+}
+
 const unsentFolder = () => new Directory(Paths.document, 'unsent-report');
+let recoveryQueue: Promise<unknown> = Promise.resolve();
+
+function withRecoveryQueue<T>(operation: () => Promise<T>): Promise<T> {
+  const result = recoveryQueue.then(operation);
+  recoveryQueue = result.catch(() => {});
+  return result;
+}
 
 /**
  * Keeps a report that could not be sent, so it survives closing the app. One at a time.
  * Returns the draft with its photos pointing at the kept copies.
  */
 export async function saveUnsentReport(draft: ReportDraft, userId: string) {
-  // Do not delete the previous recovery copy until a replacement is fully saved.
-  const folder = new Directory(unsentFolder(), draft.id);
-  folder.create({ intermediates: true, idempotent: true });
+  return withRecoveryQueue(async () => {
+    // Do not delete the previous recovery copy until a replacement is fully saved.
+    const folder = new Directory(unsentFolder(), draft.id);
+    folder.create({ intermediates: true, idempotent: true });
 
-  const photos: ReportPhoto[] = [];
-  for (const [index, photo] of draft.photos.entries()) {
-    // The camera's own files are temporary and the phone may delete them.
-    const kept = new File(folder, `${index + 1}.jpg`);
-    if (photo.uri !== kept.uri) await new File(photo.uri).copy(kept, { overwrite: true });
-    photos.push({ ...photo, uri: kept.uri });
-  }
+    const photos: ReportPhoto[] = [];
+    for (const [index, photo] of draft.photos.entries()) {
+      // The camera's own files are temporary and the phone may delete them.
+      const kept = new File(folder, `${index + 1}.jpg`);
+      if (photo.uri !== kept.uri) await new File(photo.uri).copy(kept, { overwrite: true });
+      photos.push({ ...photo, uri: kept.uri });
+    }
 
-  const saved: ReportDraft = { ...draft, photos };
-  await AsyncStorage.setItem(UNSENT_KEY, JSON.stringify({ userId, draft: saved }));
-  return saved;
+    const saved: ReportDraft = { ...draft, photos };
+    await AsyncStorage.setItem(UNSENT_KEY, JSON.stringify({ userId, draft: saved }));
+    return saved;
+  });
 }
 
 /** The report kept on this phone for this user, if there is one. */
@@ -277,8 +330,28 @@ export async function loadUnsentReport(userId: string): Promise<ReportDraft | nu
   }
 }
 
-export async function discardUnsentReport() {
-  await AsyncStorage.removeItem(UNSENT_KEY);
-  const folder = unsentFolder();
-  if (folder.exists) folder.delete();
+export async function discardUnsentReport(userId: string, expectedReportId?: string) {
+  if (!userId) throw new Error('Recovery discard requires an account.');
+  const discarded = await withRecoveryQueue(async () => {
+    const raw = await AsyncStorage.getItem(UNSENT_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved.userId !== userId) return;
+    const reportId = saved.draft?.id;
+    if (typeof reportId !== 'string') throw new Error('Invalid recovery metadata.');
+    if (expectedReportId && reportId !== expectedReportId) return false;
+    // Persist release intent first: an offline discard must not strand the guest's quota slot.
+    await withReleaseQueue(async () => {
+      const items = await readReleasedUploads();
+      if (!items.some((item) => item.userId === userId && item.reportId === reportId)) {
+        await AsyncStorage.setItem(RELEASE_KEY, JSON.stringify([...items, { userId, reportId }]));
+      }
+    });
+    await AsyncStorage.removeItem(UNSENT_KEY);
+    const folder = new Directory(unsentFolder(), reportId);
+    if (folder.exists) folder.delete();
+    return true;
+  });
+  // Remote work stays outside the recovery lock so another account can save safely while offline.
+  if (discarded) await flushReleasedUploads(userId).catch(() => console.warn('Upload release queued until the next submission.'));
 }

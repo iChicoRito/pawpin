@@ -6,13 +6,14 @@ function api(saved = false) {
   let uploads = 0;
   const rows = [];
   const report = loadSource('src/lib/reports.ts', {
-    '@react-native-async-storage/async-storage': {},
+    '@react-native-async-storage/async-storage': { getItem: async () => null },
     'expo-file-system': { File: class { get size() { return 8; } async arrayBuffer() { return new ArrayBuffer(8); } } },
     'expo-image-manipulator': {
       ImageManipulator: { manipulate: () => ({ renderAsync: async () => ({ width: 800, saveAsync: async () => ({ uri: 'file://small.jpg' }) }) }) },
       SaveFormat: { JPEG: 'jpeg' },
     },
     '@/lib/supabase': { supabase: {
+      rpc: async () => ({ data: { saved: false }, error: null }),
       from: () => ({
         select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: saved ? { id: 'saved' } : null }) }) }),
         insert: async (row) => { rows.push(row); return {}; },

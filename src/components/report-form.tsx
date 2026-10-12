@@ -133,7 +133,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
       kept = await saveUnsentReport(draft, session.user.id);
       recoverySaved.current = true;
       await submitReport(kept, session.user.id);
-      await discardUnsentReport().catch((error) => {
+      await discardUnsentReport(session.user.id, kept.id).catch((error) => {
         // A retry finds the existing report by ID, so failed cleanup cannot duplicate it.
         console.warn('Removing the sent recovery draft failed:', error);
       });
@@ -182,7 +182,7 @@ export function ReportForm({ draft: fromCamera, onRetake, onUnsent }: ReportForm
     if (sending.current) return;
     sending.current = true;
     try {
-      if (recoverySaved.current) await discardUnsentReport();
+      if (recoverySaved.current && session) await discardUnsentReport(session.user.id, draft.id);
       onRetake();
     } catch (error) {
       console.warn('Discarding the draft failed:', error);

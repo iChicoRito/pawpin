@@ -45,9 +45,9 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims',
     '{"sub":"00000000-0000-4000-8000-00000000000a","role":"authenticated","is_anonymous":false}', true);
-  insert into public.reports (id, reporter_id, location, urgency, animal_type, landmark)
+  insert into public.reports (id, reporter_id, location, urgency, animal_type, landmark, photos)
   values (report, '00000000-0000-4000-8000-00000000000a', 'SRID=4326;POINT(121.0 14.6)',
-    'critical', animal, place);
+    'critical', animal, place, array['https://example.invalid/rollback-fixture.jpg']);
   reset role;
 end;
 $$;

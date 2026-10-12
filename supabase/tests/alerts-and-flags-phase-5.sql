@@ -7,9 +7,9 @@ insert into auth.users (id, is_anonymous, raw_user_meta_data) values
   ('00000000-0000-4000-8000-00000000000c', true, '{"guest_device_id":"000000000000000c"}');
 
 -- Far out at sea, so no real user is alerted about these reports.
-insert into public.reports (id, reporter_id, location, urgency)
+insert into public.reports (id, reporter_id, location, urgency, animal_type, photos)
 select ('00000000-0000-4000-8000-0000000000a' || n)::uuid, '00000000-0000-4000-8000-00000000000a',
-  'SRID=4326;POINT(130.0 5.0)', 'critical'
+  'SRID=4326;POINT(130.0 5.0)', 'critical', 'dog', array['https://example.invalid/rollback-fixture.jpg']
 from generate_series(1, 6) n;
 
 set local role authenticated;

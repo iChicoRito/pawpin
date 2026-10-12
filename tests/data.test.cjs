@@ -52,7 +52,7 @@ test('rescues use completion date order on matching rescued reports', async () =
 function clientOptions() {
   let options;
   loadSource('src/lib/supabase.ts', {
-    '@react-native-async-storage/async-storage': {},
+    './auth-read-gate': { clientAuthStorage: undefined },
     '@supabase/supabase-js': { createClient: (_url, _key, config) => { options = config; return {}; } },
   });
   return options;
@@ -104,9 +104,11 @@ test('native auth refresh stops in background and cleans up listener', () => {
       currentState: 'active', addEventListener: (_event, listener) => { onChange = listener; return { remove: () => { removed = true; } }; },
     } },
     '@/lib/supabase': { supabase: { auth: {
+      getSession: async () => ({ data: { session: null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       startAutoRefresh: () => { started++; }, stopAutoRefresh: () => { stopped++; },
     } } },
+    '@/lib/auth-read-gate': { retryPendingAuthReads() {} },
   });
   state.render(module.SessionProvider, { children: null });
   const cleanups = effects.map((effect) => effect());

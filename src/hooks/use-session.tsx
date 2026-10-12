@@ -4,6 +4,7 @@ import { createContext, use, useEffect, useState, type PropsWithChildren } from 
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { retryPendingAuthReads } from '@/lib/auth-read-gate';
 
 type SessionState = {
   session: Session | null;
@@ -24,20 +25,59 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<SessionState>({ session: null, isLoading: true });
 
   useEffect(() => {
-    // Fires once with the saved session (or null), then again on every sign-in and sign-out.
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState({ session, isLoading: false });
-    });
+    let disposed = false;
+    let revision = 0;
+    let restoring = false;
+    let attempts = 0;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    const restore = async () => {
+      if (disposed || restoring) return;
+      restoring = true;
+      const startedAt = revision;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (disposed || startedAt !== revision) return;
+        setState({ session: data.session, isLoading: false });
+        if (retry !== undefined) clearTimeout(retry);
+        retry = undefined;
+        // The SDK's initial subscription read is fire-and-forget and can reject before
+        // calling us. Do not start it while explicit restoration is failing.
+        subscription ??= supabase.auth.onAuthStateChange((event, session) => {
+          if (disposed || event === 'INITIAL_SESSION') return;
+          revision++;
+          setState({ session, isLoading: false });
+        }).data.subscription;
+      } catch {
+        if (!disposed && startedAt === revision) {
+          console.error('Saved session restoration failed; retrying when storage is available.');
+          // Keep the last account (or unresolved startup), never reinterpret failure as sign-out.
+          if (attempts++ < 2) retry = setTimeout(() => { retry = undefined; void restore(); }, 1000);
+        }
+      } finally {
+        restoring = false;
+      }
+    };
     const refreshFor = (next: AppStateStatus) => {
-      if (next === 'active') supabase.auth.startAutoRefresh();
+      if (next === 'active') {
+        retryPendingAuthReads();
+        void restore();
+        supabase.auth.startAutoRefresh();
+      }
       else supabase.auth.stopAutoRefresh();
     };
     const appState = Platform.OS !== 'web'
       ? AppState.addEventListener('change', refreshFor)
       : null;
     if (appState) refreshFor(AppState.currentState);
+    else void restore();
     return () => {
-      data.subscription.unsubscribe();
+      disposed = true;
+      revision++;
+      if (retry !== undefined) clearTimeout(retry);
+      subscription?.unsubscribe();
       appState?.remove();
       if (appState) supabase.auth.stopAutoRefresh();
     };

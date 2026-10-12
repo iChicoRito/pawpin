@@ -76,14 +76,39 @@ function reportFrom(row: Record<string, any>) {
 }
 
 /** Active reports within `radiusM` of a place, nearest first. Throws if the search fails. */
-export async function fetchNearbyReports(place: ReportPlace, radiusM: number) {
-  const { data, error } = await supabase.rpc('nearby_reports', {
-    lat: place.latitude,
-    lng: place.longitude,
-    radius_m: radiusM,
-  });
-  if (error) throw error;
-  return (data as Record<string, any>[]).map((row): NearbyReport => reportFrom(row));
+export async function fetchNearbyReports(
+  place: ReportPlace, radiusM: number, signal?: AbortSignal,
+): Promise<NearbyReport[]> {
+  const reports = new Map<string, NearbyReport>();
+  let cursor: { distance_m: number; id: string } | null = null;
+  const checkCancellation = () => {
+    if (signal?.aborted) throw Object.assign(new Error('Nearby search cancelled'), { name: 'AbortError' });
+  };
+  do {
+    checkCancellation();
+    const query: ReturnType<typeof supabase.rpc> = supabase.rpc('nearby_report_pages', {
+      lat: place.latitude, lng: place.longitude, radius_m: radiusM, page_size: 200,
+      after_distance_m: cursor?.distance_m ?? null, after_id: cursor?.id ?? null,
+    });
+    if (signal) query.abortSignal(signal);
+    const { data, error } = await query;
+    checkCancellation();
+    if (error) throw error;
+    // Scalar JSON is not a row set: PostgREST's max-rows cannot truncate its nested rows.
+    if (!data || !Array.isArray(data.rows) || data.rows.length > 200 ||
+        !Object.hasOwn(data, 'next_cursor')) throw new Error('Invalid nearby page');
+    const next: { distance_m: number; id: string } | null = data.next_cursor;
+    if (next !== null && (!data.rows.length || !Number.isFinite(next.distance_m) ||
+        typeof next.id !== 'string' || next.id !== data.rows.at(-1).id ||
+        next.distance_m !== data.rows.at(-1).distance_m || (cursor && (next.distance_m < cursor.distance_m ||
+          (next.distance_m === cursor.distance_m && next.id <= cursor.id))))) {
+      throw new Error('Invalid nearby page cursor');
+    }
+    for (const row of data.rows) reports.set(row.id, reportFrom(row) as NearbyReport);
+    cursor = next;
+  } while (cursor !== null);
+  return [...reports.values()].sort((a, b) => a.distanceM - b.distanceM ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 /**
