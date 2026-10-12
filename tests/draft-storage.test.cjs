@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { loadSource } = require('./load-source.cjs');
 
-function storageApi() {
+function storageApi(supabase = {}) {
   const files = new Map([['file://cache/photo.jpg', 'photo bytes']]);
   const directories = new Set();
   let metadata = null;
@@ -28,7 +28,12 @@ function storageApi() {
       if (files.has(to.uri) && !options?.overwrite) throw new Error('Destination exists');
       files.set(to.uri, files.get(this.uri));
     }
+    async arrayBuffer() { return new ArrayBuffer(8); }
+    get size() { return 8; }
   }
+  // Hands the photo back untouched: shrinking is not what these tests are about.
+  const rendered = (uri) => ({ width: 800, saveAsync: async () => ({ uri }) });
+  const ImageManipulator = { manipulate: (uri) => ({ renderAsync: async () => rendered(uri) }) };
   const api = loadSource('src/lib/reports.ts', {
     '@react-native-async-storage/async-storage': {
       getItem: async () => metadata,
@@ -36,7 +41,8 @@ function storageApi() {
       removeItem: async () => { metadata = null; },
     },
     'expo-file-system': { Directory, File, Paths: { document: 'file://documents' } },
-    'expo-image-manipulator': {}, '@/lib/supabase': { supabase: {} },
+    'expo-image-manipulator': { ImageManipulator, SaveFormat: { JPEG: 'jpeg' } },
+    '@/lib/supabase': { supabase },
   });
   return { api, files, failWrite: () => { failWrite = true; } };
 }
@@ -81,4 +87,33 @@ test('discard removes recovery metadata and durable copies, not camera originals
   assert.equal(await api.loadUnsentReport('user'), null);
   assert.equal(files.has(kept.photos[0].uri), false);
   assert.equal(files.get('file://cache/photo.jpg'), 'photo bytes');
+});
+
+/** A stand-in database that takes every photo and remembers the rows it was given. */
+function sendingApi() {
+  const rows = [];
+  const supabase = {
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+      insert: async (row) => { rows.push(row); return { error: null }; },
+    }),
+    storage: { from: () => ({
+      upload: async () => ({ error: null }),
+      getPublicUrl: (path) => ({ data: { publicUrl: `https://photos.test/${path}` } }),
+    }) },
+  };
+  return { api: storageApi(supabase).api, rows };
+}
+
+test('a kept draft keeps its no-animal mark', async () => {
+  const { api } = storageApi();
+  await api.saveUnsentReport({ ...draft, noAnimalSeen: true }, 'user');
+  assert.equal((await api.loadUnsentReport('user')).noAnimalSeen, true);
+});
+
+test('a marked draft is sent with the mark, and a draft from an older build without it', async () => {
+  const { api, rows } = sendingApi();
+  await api.submitReport({ ...draft, noAnimalSeen: true }, 'user');
+  await api.submitReport({ ...draft, id: 'second' }, 'user');
+  assert.deepEqual(rows.map((row) => row.no_animal_seen), [true, false]);
 });

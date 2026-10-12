@@ -17,7 +17,8 @@ function cameraScreen(location, takePictureAsync) {
     'react-native-safe-area-context': insets, '@/components/app-tabs': {},
     '@/components/report-photo': { PhotoThumb: 'PhotoThumb' },
     '@/components/themed-text': themed, '@/components/themed-view': themed,
-    '@/constants/theme': theme, '@/lib/reports': { MAX_PHOTOS: 3 },
+    '@/constants/theme': theme, '@/lib/reports': { MAX_PHOTOS: 3 }, '@/lib/photo-check': {},
+    '@/components/drawer-backdrop': {}, '@/components/report-sent': {},
   }, ['Viewfinder']);
   const props = { photos: [], isFull: false, onCapture() {}, onRetry() {}, next: null };
   const render = () => hookState.render(module.__test.Viewfinder, props);

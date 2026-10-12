@@ -90,6 +90,11 @@ export type ReportDraft = ReportPlace & {
   condition: string;
   landmark: string;
   urgency: ReportUrgency | null;
+  /**
+   * The photo check saw no animal and the reporter went on anyway. Decided once, at the camera.
+   * Missing on reports kept by an older version.
+   */
+  noAnimalSeen?: boolean;
 };
 
 // Values match the report_status type in the database. Said the way a person would say them.
@@ -211,6 +216,7 @@ export async function submitReport(draft: ReportDraft, userId: string) {
     condition: draft.condition || null,
     landmark: draft.landmark.trim() || null,
     urgency: draft.urgency,
+    no_animal_seen: draft.noAnimalSeen ?? false,
   });
   if (error) {
     throw new Error(error.message.includes(GUEST_LIMIT_ERROR) ? GUEST_LIMIT_ERROR : error.message);

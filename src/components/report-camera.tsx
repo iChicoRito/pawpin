@@ -5,16 +5,27 @@ import { CameraView } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useIsFocused, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Button, Spinner, useThemeColor } from 'heroui-native';
+import {
+  BottomSheet,
+  Button,
+  Spinner,
+  useBottomSheet,
+  useThemeColor,
+  useToast,
+} from 'heroui-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useHideTabBar } from '@/components/app-tabs';
+import { DrawerBottomSheetOverlay } from '@/components/drawer-backdrop';
 import { PhotoThumb } from '@/components/report-photo';
+import { ToastIcon } from '@/components/report-sent';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useSoundOnVisible } from '@/hooks/use-feedback';
+import { checkPhotos } from '@/lib/photo-check';
 import {
   MAX_PHOTOS,
   startDraft,
@@ -42,6 +53,14 @@ export function ReportCamera({ onDone }: { onDone: (draft: ReportDraft) => void 
   const isFocused = useIsFocused();
   const [draft, setDraft] = useState<ReportDraft | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [isChecking, setIsChecking] = useState(false);
+  // The check saw no animal in any photo. The reporter chooses what to do; nothing is blocked.
+  const [isWarned, setIsWarned] = useState(false);
+  const checking = useRef(false);
+  const accentForeground = useThemeColor('accent-foreground');
+  useSoundOnVisible('confirmation', isWarned);
+  // HeroUI's own toast, which is silent. The chime is kept for the moment the report is sent.
+  const { toast } = useToast();
 
   // The camera takes the whole screen. The close button below is the way out while the bar is gone.
   useHideTabBar(isFocused);
@@ -54,6 +73,38 @@ export function ReportCamera({ onDone }: { onDone: (draft: ReportDraft) => void 
     setDraft(draft ? { ...draft, photos: [...draft.photos, photo] } : startDraft(photo));
   }
 
+  async function next() {
+    if (!draft || checking.current) return;
+    checking.current = true;
+    setIsChecking(true);
+    // Runs on the phone and never throws: a check that cannot run answers 'unknown', which passes.
+    const { result, animal } = await checkPhotos(draft.photos.map((photo) => photo.uri));
+    checking.current = false;
+    setIsChecking(false);
+    if (result === 'none') {
+      setIsWarned(true);
+      return;
+    }
+    // Said only when the check saw one. A check that could not run goes on without a word.
+    if (result === 'animal') {
+      toast.show({
+        variant: 'success',
+        label: animal ? `${animal} detected` : 'Animal detected',
+        icon: <ToastIcon status="success" />,
+      });
+    }
+    onDone({ ...draft, noAnimalSeen: false });
+  }
+
+  function goOnAnyway() {
+    if (draft) onDone({ ...draft, noAnimalSeen: true });
+  }
+
+  function startOver() {
+    setIsWarned(false);
+    setDraft(null);
+  }
+
   return (
     <View style={styles.container}>
       {isFocused && (
@@ -61,12 +112,49 @@ export function ReportCamera({ onDone }: { onDone: (draft: ReportDraft) => void 
         <Viewfinder
           key={attempt}
           photos={photos}
-          isFull={isFull}
+          // The photos must not change while they are being checked.
+          isFull={isFull || isChecking}
           onCapture={addPhoto}
           onRetry={() => setAttempt(attempt + 1)}
-          next={draft && <Button onPress={() => onDone(draft)}>Next</Button>}
+          next={
+            draft && (
+              <Button isDisabled={isChecking} onPress={next}>
+                {isChecking && <Spinner size="sm" color={accentForeground} />}
+                <Button.Label>{isChecking ? 'Checking photos…' : 'Next'}</Button.Label>
+              </Button>
+            )
+          }
         />
       )}
+
+      {/* A drawer like the app's others. Dragging it down, or tapping the camera behind it, closes
+          it and leaves the photos as they are. */}
+      <BottomSheet isDefaultOpen={false} onOpenChange={(open) => !open && setIsWarned(false)}>
+        <WarningOpenState isOpen={isWarned} />
+        <BottomSheet.Portal>
+          <DrawerBottomSheetOverlay />
+          <BottomSheet.Content>
+            <View role="alert" style={styles.warning}>
+              <View style={styles.warningText}>
+                <BottomSheet.Title>No animal seen in your photos</BottomSheet.Title>
+                <BottomSheet.Description>
+                  The animal may be far away, hiding, or in poor light. Take a closer photo if you
+                  can.
+                </BottomSheet.Description>
+              </View>
+              {/* A better photo is the way forward, so starting over is the filled one. */}
+              <View style={styles.warningRow}>
+                <Button style={styles.half} onPress={startOver}>
+                  Start over
+                </Button>
+                <Button variant="secondary" style={styles.half} onPress={goOnAnyway}>
+                  Continue anyway
+                </Button>
+              </View>
+            </View>
+          </BottomSheet.Content>
+        </BottomSheet.Portal>
+      </BottomSheet>
 
       <View style={[styles.topBar, { top: insets.top + Spacing.two }]}>
         <Pressable
@@ -77,13 +165,22 @@ export function ReportCamera({ onDone }: { onDone: (draft: ReportDraft) => void 
           <HugeiconsIcon icon={Cancel01Icon} size={22} color={ON_PICTURE} />
         </Pressable>
         {draft && (
-          <Button variant="tertiary" onPress={() => setDraft(null)}>
+          <Button variant="tertiary" isDisabled={isChecking} onPress={startOver}>
             Start over
           </Button>
         )}
       </View>
     </View>
   );
+}
+
+// Sends the warning into HeroUI's own state, as the Map's drawer does (report-preview.tsx).
+function WarningOpenState({ isOpen }: { isOpen: boolean }) {
+  const { onOpenChange } = useBottomSheet();
+  useEffect(() => {
+    onOpenChange(isOpen);
+  }, [isOpen, onOpenChange]);
+  return null;
 }
 
 type ViewfinderProps = {
@@ -342,6 +439,20 @@ const styles = StyleSheet.create({
   starting: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // The words sit apart from the buttons, and closer to each other.
+  warning: {
+    gap: Spacing.four,
+  },
+  warningText: {
+    gap: Spacing.two,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  half: {
+    flex: 1,
   },
   shutterRow: {
     flexDirection: 'row',
