@@ -23,6 +23,7 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - `src/app/(tabs)/report.tsx` — the Report tab on phones: permissions, then camera, then form. `report.web.tsx` is the browser version, one line saying reporting works in the phone app.
 - `src/components/report-*.tsx` — the steps of reporting: `report-permissions`, `report-camera`, `report-form`, `report-sent`, `report-unsent` (a report kept on the phone after a failed send).
 - `src/lib/reports.ts` — the report draft, the choice lists, sending a report, and keeping an unsent one.
+- `src/lib/photo-check.ts` — the photo check: whether a photo shows an animal, decided on the phone by Google ML Kit image labeling (`@react-native-ml-kit/image-labeling`), with no internet. The labels that count and the confidence are in the file. The camera's **Next** button runs it; with no animal in any photo a drawer warns the reporter, who may start over or continue anyway.
 - `src/app/components.tsx` — every HeroUI component on one page. Opened by the small gear button over the tabs, in development builds only.
 - `src/components/app-tabs.tsx` — the custom bottom tab bar.
 - `src/hooks/use-session.tsx` — `useSession()`: session, guest flag, admin flag, name, photo.
@@ -42,7 +43,8 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - Roadmap Phase 2 (reporting a stray) is built: `docs/implementation-plan/stray-reporting/`. Some of its screen checks were marked done by the owner without being seen line by line; each phase file says which. The notifications request (part of R-11) waits for roadmap Phase 5.
 - Roadmap Phase 3 (map, list, report page, directions) is built: `docs/implementation-plan/stray-finding/`. Most of its screen checks were marked done by the owner without being reported line by line; each phase file says which. A path drawn on PawPin's own map was tried and removed: the free routing servers were not dependable.
 - Roadmap Phase 4 (claiming, outcomes, live changes, closing, profile history) is built: `docs/implementation-plan/rescue-coordination/`. Most of its screen checks were marked done by the owner without being reported line by line; each phase file says which.
-- Roadmap Phase 5 (alerts, flags, the admin's app, safety tips) is built: `docs/implementation-plan/alerts-and-flags/`. Most of its screen checks rest on the owner's word; each phase file says which. That was the last phase: version 1's building work is finished.
+- Roadmap Phase 5 (alerts, flags, the admin's app, safety tips) is built: `docs/implementation-plan/alerts-and-flags/`. Most of its screen checks rest on the owner's word; each phase file says which. That was the last phase of version 1.
+- Roadmap Phase 6 (the photo check, the "no animal seen" mark, the admin seeing it) is built: `docs/implementation-plan/photo-check/`. Its screen checks rest on the owner's word, and some were not made at all: no real animal was photographed, only pictures on a laptop screen. Each phase file says which.
 
 **Things that have already cost time**
 
@@ -83,6 +85,12 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - The report page opens any report by its id, finished or far away (`report_by_id`, `0016`). Do not assume the report is among the nearby ones.
 - A flag cannot be read back by whoever sent it. Only an admin reads flags.
 - The dev server serves the browser version on `localhost:8081`. Its first page load can take minutes while it bundles.
+- The photo check is a nudge, not a guard. A picture of a dog on a screen passes as a dog, and the model has names for only about 26 animals: dogs, cats, and birds, but no rabbit or goat. It never blocks a report, and a check that cannot run counts as a pass.
+- A report's "no animal seen" mark (`reports.no_animal_seen`, `supabase/migrations/0023`) is decided once, at the camera, and travels in the draft. It is not checked again on "Send again". Reporters cannot update the column. Any signed-in user could read it from the database; only the admin's screens show it.
+- The animal named in the "Dog detected" toast is the model's guess and can be wrong. It is shown, never saved.
+- The web export does not prove a library stays out of the browser. The bundle carries every screen file, the phone-only ones too, and the browser picks the `.web` twin when it runs. The ML Kit library is carried and never called.
+- `npx expo export` sometimes ends with a crash code after writing every page (seen twice on 12 October 2026). Run it again before believing it failed.
+- A test that loads a file with `loadSource` must list every import of that file. A new import in `report-camera.tsx` or `report/[id].tsx` fails their tests until it is added to the list.
 - Do not run Prettier with its defaults on this code. The files use single quotes, 100 columns, and brackets on the same line: `--single-quote --print-width 100 --bracket-same-line`.
 
 ## Commands

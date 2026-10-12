@@ -31,6 +31,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import {
   fetchAdminOverview,
   fetchAdminStats,
+  fetchUnseenReports,
   type AdminFilter,
   type AdminOverview,
   type AdminStats,
@@ -50,6 +51,8 @@ type Answer = {
   overview: AdminOverview;
   stats: AdminStats;
   flagged: { reports: FlaggedReport[]; total: number };
+  /** Active reports sent after the photo check saw no animal. */
+  unseen: { reports: FlaggedReport[]; total: number };
 };
 
 /** "12 min", "3 h", "2 days": how long half of the answered reports waited for a rescuer. */
@@ -62,7 +65,8 @@ function formatWait(minutes: number) {
 
 /**
  * The admin's first tab, in place of the Map. The numbers that say how things stand come first,
- * then what needs the admin: flagged reports, and reports about to close by themselves. Under
+ * then what needs the admin: flagged reports, reports sent with no animal seen, and reports about
+ * to close by themselves. Under
  * those, the charts. Cards that count reports open the Reports tab on that filter. No map and no
  * location, so it runs in a browser too.
  */
@@ -81,9 +85,14 @@ export function AdminDashboard() {
   useEffect(() => {
     if (!isFocused) return;
     let isGone = false;
-    Promise.all([fetchAdminOverview(), fetchAdminStats(), fetchFlaggedReports(true)])
-      .then(([overview, stats, flagged]) => {
-        if (!isGone) setAnswer({ overview, stats, flagged });
+    Promise.all([
+      fetchAdminOverview(),
+      fetchAdminStats(),
+      fetchFlaggedReports(true),
+      fetchUnseenReports(),
+    ])
+      .then(([overview, stats, flagged, unseen]) => {
+        if (!isGone) setAnswer({ overview, stats, flagged, unseen });
       })
       .catch((error) => {
         console.warn('Loading the dashboard failed:', error);
@@ -153,7 +162,16 @@ type WidgetsProps = {
   onOpenReport: (id: string) => void;
 };
 
-function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }: WidgetsProps) {
+function Widgets({
+  answer: { overview, stats, flagged, unseen },
+  onOpen,
+  onOpenReport,
+}: WidgetsProps) {
+  const flaggedShown = flagged.reports.slice(0, FLAGGED_SHOWN);
+  // A report that is both flagged and marked shows once, among the flagged, with both chips.
+  const unseenShown = unseen.reports.filter(
+    (report) => !flaggedShown.some((shown) => shown.id === report.id),
+  );
   const finished = overview.rescued + overview.notFound + overview.closed;
   const active = overview.reported + overview.responding;
   const sent = stats.days.reduce((sum, day) => sum + day.count, 0);
@@ -205,21 +223,25 @@ function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }:
         <ThemedText type="small" role="heading" themeColor="textSecondary">
           Needs a look
         </ThemedText>
-        {flagged.reports.length === 0 ? (
-          <AllClear />
-        ) : (
+        {flaggedShown.length === 0 && unseen.reports.length === 0 && <AllClear />}
+        {flaggedShown.length > 0 && (
           <>
-            <AdminReportRows
-              datedBy="flag"
-              reports={flagged.reports.slice(0, FLAGGED_SHOWN)}
-              onPress={onOpenReport}
-            />
+            <AdminReportRows datedBy="flag" reports={flaggedShown} onPress={onOpenReport} />
             {flagged.total > FLAGGED_SHOWN && (
               <Button variant="secondary" onPress={() => onOpen('flagged')}>
                 See all {flagged.total} flagged reports
               </Button>
             )}
           </>
+        )}
+        {/* Under the flagged ones: a person's word comes before the phone's guess. */}
+        {unseenShown.length > 0 && (
+          <AdminReportRows datedBy="sent" reports={unseenShown} onPress={onOpenReport} />
+        )}
+        {unseen.total > unseen.reports.length && (
+          <Button variant="secondary" onPress={() => onOpen('unseen')}>
+            See all {unseen.total} reports with no animal seen
+          </Button>
         )}
       </View>
 
@@ -359,7 +381,7 @@ function Widgets({ answer: { overview, stats, flagged }, onOpen, onOpenReport }:
   );
 }
 
-/** In place of the flagged rows when there are none: said plainly, so the gap is not a question. */
+/** In place of the rows when there are none: said plainly, so the gap is not a question. */
 function AllClear() {
   const [success, successBackground] = useThemeColor(['success-soft-foreground', 'success-soft']);
   return (
@@ -368,8 +390,8 @@ function AllClear() {
         icon={CheckmarkCircle02Icon}
         iconColor={success}
         iconBackgroundColor={successBackground}
-        title="No flagged reports"
-        text="Active reports flagged by users will appear here for review."
+        title="Nothing needs a look"
+        text="Flagged reports, and reports sent with no animal seen, will appear here."
       />
     </ThemedView>
   );

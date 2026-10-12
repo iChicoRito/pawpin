@@ -43,6 +43,12 @@ const WORDS: Record<AdminFilter, { one: string; many: string; emptyTitle: string
       emptyTitle: 'No finished reports',
       empty: 'Reports that end as rescued, not found, or closed are listed here.',
     },
+    unseen: {
+      one: 'report with no animal seen',
+      many: 'reports with no animal seen',
+      emptyTitle: 'No reports to check',
+      empty: 'Reports sent after the photo check saw no animal are listed here.',
+    },
   };
 
 // What the database answered for one filter. Kept with its filter, so one filter's reports are
@@ -157,13 +163,16 @@ export function AdminReports() {
           aria-label="Which reports to show"
           value={filter}
           onValueChange={(value) => router.setParams({ filter: value })}>
+          {/* Five filters do not fit side by side on a 360 px phone, so the bar scrolls sideways. */}
           <Tabs.List className="self-stretch">
-            <Tabs.Indicator />
-            {ADMIN_FILTERS.map((choice) => (
-              <Tabs.Trigger key={choice.value} value={choice.value} className="flex-1">
-                <Tabs.Label>{choice.label}</Tabs.Label>
-              </Tabs.Trigger>
-            ))}
+            <Tabs.ScrollView>
+              <Tabs.Indicator />
+              {ADMIN_FILTERS.map((choice) => (
+                <Tabs.Trigger key={choice.value} value={choice.value}>
+                  <Tabs.Label>{choice.label}</Tabs.Label>
+                </Tabs.Trigger>
+              ))}
+            </Tabs.ScrollView>
           </Tabs.List>
         </Tabs>
 

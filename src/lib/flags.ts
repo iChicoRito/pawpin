@@ -45,6 +45,8 @@ export type FlaggedReport = HistoryReport & {
   flagCount: number;
   /** The different reasons given, the newest flag's first. */
   reasons: string[];
+  /** The phone's photo check saw no animal and the reporter sent it anyway. For the admin only. */
+  noAnimalSeen?: boolean;
 };
 
 const FLAGGED_LIMIT = 50;
@@ -63,7 +65,7 @@ export async function fetchFlaggedReports(
   let query = supabase
     .from('flags')
     .select(
-      'reason, created_at, reports!inner(id, animal_type, status, landmark, photos, created_at)',
+      'reason, created_at, reports!inner(id, animal_type, status, landmark, photos, created_at, no_animal_seen)',
     );
   if (onlyActive) query = query.in('reports.status', ['reported', 'responding']);
   const { data, error } = await query.order('created_at', { ascending: false }).limit(200);
@@ -88,6 +90,7 @@ export async function fetchFlaggedReports(
         photo: report.photos?.[0] ?? null,
         flagCount: 1,
         reasons: [flag.reason],
+        noAnimalSeen: report.no_animal_seen,
       });
     }
   }

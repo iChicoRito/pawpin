@@ -64,7 +64,7 @@ import { useDirections } from '@/hooks/use-directions';
 import { useNearbyReports } from '@/hooks/use-nearby-reports';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
-import { adminCloseReport, fetchReportFlags } from '@/lib/admin';
+import { adminCloseReport, fetchNoAnimalSeen, fetchReportFlags } from '@/lib/admin';
 import { cancelClaim, claimReport, closeReport, refusalOf, resolveReport } from '@/lib/claims';
 import {
   FLAG_REASONS,
@@ -200,6 +200,7 @@ export default function ReportDetailScreen() {
   const reporter = useReporter(report?.reporterId);
   // Only an admin can read flags, so only an admin asks.
   const flags = useReportFlags(isAdmin ? report?.id : undefined);
+  const noAnimalSeen = useNoAnimalSeen(isAdmin ? report?.id : undefined);
   const directions = useDirections(report ?? undefined);
   const [muted, foreground] = useThemeColor(['muted', 'foreground']);
 
@@ -482,6 +483,15 @@ export default function ReportDetailScreen() {
                 </View>
               )}
             </View>
+
+            {/* For an admin only: what the reporter's phone found before the report was sent. */}
+            {noAnimalSeen && (
+              <Section title="Photo check">
+                <ThemedText style={styles.regular}>
+                  The photo check saw no animal in these photos. The reporter sent it anyway.
+                </ThemedText>
+              </Section>
+            )}
 
             {/* For an admin only, and first under the summary: what users said is wrong with this
                 report is what they came to read. Who said it is not read. Above the tabs, so it
@@ -898,6 +908,29 @@ function useReportFlags(reportId: string | undefined) {
   }, [reportId]);
 
   return answer && answer.id === reportId ? answer.flags : [];
+}
+
+/**
+ * Whether the phone's photo check saw no animal in this report's photos, for an admin. False for
+ * everyone else, while it is being read, and when it cannot be: the line is then simply not there.
+ */
+function useNoAnimalSeen(reportId: string | undefined) {
+  const [answer, setAnswer] = useState<{ id: string; noAnimalSeen: boolean }>();
+
+  useEffect(() => {
+    if (!reportId) return;
+    let isGone = false;
+    fetchNoAnimalSeen(reportId)
+      .then((noAnimalSeen) => {
+        if (!isGone) setAnswer({ id: reportId, noAnimalSeen });
+      })
+      .catch((error) => console.warn('Reading the photo check failed:', error));
+    return () => {
+      isGone = true;
+    };
+  }, [reportId]);
+
+  return !!answer && answer.id === reportId && answer.noAnimalSeen;
 }
 
 /** An icon on a faint tile. Same size as a `BrandIcon`, so both drawers line up. */

@@ -98,12 +98,34 @@ export const ADMIN_FILTERS = [
   { value: 'flagged', label: 'Flagged' },
   { value: 'open', label: 'Open' },
   { value: 'finished', label: 'Finished' },
+  // Sent after the phone's photo check saw no animal in any photo.
+  { value: 'unseen', label: 'No animal' },
 ] as const;
 
 export type AdminFilter = (typeof ADMIN_FILTERS)[number]['value'];
 
 /** How many reports one read hands back. */
 export const ADMIN_PAGE = 30;
+
+const REPORT_COLUMNS =
+  'id, animal_type, status, landmark, created_at, updated_at, photos, no_animal_seen';
+
+/** One row of `reports`, read with `REPORT_COLUMNS` and its flags, as the admin's lists show it. */
+function toAdminReport(row: Record<string, any>): FlaggedReport {
+  const reasons: string[] = (row.flags ?? []).map((flag: { reason: string }) => flag.reason);
+  return {
+    id: row.id,
+    animalType: row.animal_type,
+    status: row.status,
+    createdAt: row.created_at,
+    changedAt: row.updated_at,
+    landmark: row.landmark,
+    photo: row.photos?.[0] ?? null,
+    flagCount: reasons.length,
+    reasons: [...new Set(reasons)],
+    noAnimalSeen: row.no_animal_seen,
+  };
+}
 
 /**
  * Reports from everywhere, newest first, `ADMIN_PAGE` at a time starting after the first `offset`,
@@ -118,32 +140,50 @@ export async function fetchAdminReports(
   const flags = filter === 'flagged' ? 'flags!inner' : 'flags';
   let query = supabase
     .from('reports')
-    .select(`id, animal_type, status, landmark, created_at, updated_at, photos, ${flags}(reason)`, {
-      count: 'exact',
-    });
+    .select(`${REPORT_COLUMNS}, ${flags}(reason)`, { count: 'exact' });
   if (filter === 'open') query = query.in('status', ['reported', 'responding']);
   if (filter === 'finished') query = query.in('status', ['rescued', 'not_found', 'closed']);
+  if (filter === 'unseen') query = query.eq('no_animal_seen', true);
   const { data, error, count } = await query
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .range(offset, offset + ADMIN_PAGE - 1);
   if (error) throw error;
 
-  const reports = (data as Record<string, any>[]).map((row): FlaggedReport => {
-    const reasons: string[] = (row.flags ?? []).map((flag: { reason: string }) => flag.reason);
-    return {
-      id: row.id,
-      animalType: row.animal_type,
-      status: row.status,
-      createdAt: row.created_at,
-      changedAt: row.updated_at,
-      landmark: row.landmark,
-      photo: row.photos?.[0] ?? null,
-      flagCount: reasons.length,
-      reasons: [...new Set(reasons)],
-    };
-  });
+  const reports = (data as Record<string, any>[]).map(toAdminReport);
   return { reports, total: count ?? reports.length };
+}
+
+/** How many of these the Dashboard shows before "See all". */
+const UNSEEN_SHOWN = 3;
+
+/**
+ * Active reports sent after the photo check saw no animal, newest first: the first few, and how
+ * many there are in all. Finished ones are left out: nothing is left to do about those. Throws if
+ * the read fails.
+ */
+export async function fetchUnseenReports(): Promise<{ reports: FlaggedReport[]; total: number }> {
+  const { data, error, count } = await supabase
+    .from('reports')
+    .select(`${REPORT_COLUMNS}, flags(reason)`, { count: 'exact' })
+    .eq('no_animal_seen', true)
+    .in('status', ['reported', 'responding'])
+    .order('created_at', { ascending: false })
+    .limit(UNSEEN_SHOWN);
+  if (error) throw error;
+  const reports = (data as Record<string, any>[]).map(toAdminReport);
+  return { reports, total: count ?? reports.length };
+}
+
+/** Whether this report was sent after the photo check saw no animal. Throws on failure. */
+export async function fetchNoAnimalSeen(reportId: string) {
+  const { data, error } = await supabase
+    .from('reports')
+    .select('no_animal_seen')
+    .eq('id', reportId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.no_animal_seen === true;
 }
 
 /** The flags on one report, newest first. Who sent them is not read. Throws on failure. */

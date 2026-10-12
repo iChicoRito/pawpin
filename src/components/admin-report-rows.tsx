@@ -71,7 +71,8 @@ export function AdminReportList({ reports, datedBy, onPress }: AdminReportRowsPr
 }
 
 /**
- * One grouped list of reports: the animal and time, then status and flag count.
+ * One grouped list of reports: the animal and time, then status, the photo check's mark, and
+ * flag count.
  * Flag reasons and location are on the report's own page.
  */
 export function AdminReportRows({ reports, datedBy, onPress }: AdminReportRowsProps) {
@@ -86,6 +87,7 @@ export function AdminReportRows({ reports, datedBy, onPress }: AdminReportRowsPr
         const spoken = [
           animal,
           status.label,
+          report.noAnimalSeen && 'no animal seen in the photos',
           report.flagCount > 0 && `${flags}: ${report.reasons.join(', ')}`,
           `${datedBy === 'flag' ? 'flagged' : 'reported'} ${age.toLowerCase()}`,
         ]
@@ -130,6 +132,12 @@ export function AdminReportRows({ reports, datedBy, onPress }: AdminReportRowsPr
                     ) : (
                       <Chip size="sm" variant={status.variant} color={status.color}>
                         {status.label}
+                      </Chip>
+                    )}
+                    {/* What the phone's photo check found. Quieter than a flag: no person said it. */}
+                    {report.noAnimalSeen && (
+                      <Chip size="sm" variant="soft" color="warning">
+                        No animal seen
                       </Chip>
                     )}
                     {report.flagCount > 0 && (

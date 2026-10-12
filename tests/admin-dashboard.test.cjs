@@ -3,7 +3,7 @@ const test = require('node:test');
 const React = require('react');
 const { loadSource, native, ui, theme, findElement } = require('./load-source.cjs');
 
-function dashboard(stats, overview = {}) {
+function dashboard(stats, overview = {}, lists = {}) {
   const dependencies = {
     react: React,
     'react-native': native,
@@ -39,6 +39,8 @@ function dashboard(stats, overview = {}) {
       overview: { reported: 0, responding: 0, rescued: 0, notFound: 0, closed: 0, flagged: 0, ...overview },
       stats: { days: [], flagReasons: [], animals: [], closingSoon: [], responseMinutes: null, urgency: {}, thisWeek: 0, ...stats },
       flagged: { reports: [], total: 0 },
+      unseen: { reports: [], total: 0 },
+      ...lists,
     },
     onOpen: (filter) => opened.push(filter), onOpenReport() {},
   });
@@ -85,13 +87,14 @@ test('populated analytics keep their charts, including a valid zero-minute respo
   assert.equal(cardOf(tree, titles[2]).props.summary, '0 min');
 });
 
-test('Needs a look uses the same contextual notice when no active report is flagged', () => {
+test('Needs a look uses the same contextual notice when nothing is flagged or marked', () => {
   const { tree, AllClear } = dashboard({});
   assert.ok(findElement(tree, (node) => node.type === AllClear));
   const notice = findElement(AllClear(), (node) => node.type === 'Notice');
   assert.ok(notice, 'flagged reports need the same centered empty-state layout');
-  assert.equal(notice.props.title, 'No flagged reports');
-  assert.match(notice.props.text, /active reports/i);
+  assert.equal(notice.props.title, 'Nothing needs a look');
+  assert.match(notice.props.text, /flagged reports/i);
+  assert.match(notice.props.text, /no animal seen/i);
   assert.equal(notice.props.icon, 'CheckmarkCircle02Icon');
   assert.equal(notice.props.iconColor, '#21834b');
   assert.equal(notice.props.iconBackgroundColor, '#e4f5ea');
@@ -117,4 +120,39 @@ test('Notice applies success icon colors without changing other empty states', (
   assert.equal(findElement(regular, (node) => node.type === 'Icon').props.color, '#60646c');
   const defaultSurface = findElement(regular, (node) => node.type === 'Surface');
   assert.equal(Object.assign({}, ...defaultSurface.props.style).backgroundColor, undefined);
+});
+
+const report = (id) => ({ id, animalType: 'dog', status: 'reported', flagCount: 0, reasons: [] });
+const rowsOf = (tree) => {
+  const found = [];
+  findElement(tree, (node) => { if (node.type === 'Rows') found.push(node.props.reports.map((row) => row.id)); return false; });
+  return found;
+};
+
+test('reports sent with no animal seen are listed under Needs a look, after the flagged ones', () => {
+  const marked = { reports: [report('m1')], total: 1 };
+  // Marked only: listed, and no all-clear.
+  const alone = dashboard({}, {}, { unseen: marked });
+  assert.deepEqual(rowsOf(alone.tree), [['m1']]);
+  assert.equal(findElement(alone.tree, (node) => node.type === alone.AllClear), undefined);
+  // Flagged only: no all-clear either.
+  const flaggedOnly = dashboard({}, {}, { flagged: { reports: [report('f1')], total: 1 } });
+  assert.deepEqual(rowsOf(flaggedOnly.tree), [['f1']]);
+  assert.equal(findElement(flaggedOnly.tree, (node) => node.type === flaggedOnly.AllClear), undefined);
+  // Both: flagged first. A report that is both shows once, among the flagged.
+  const both = dashboard({}, {}, {
+    flagged: { reports: [report('f1'), report('m1')], total: 2 },
+    unseen: { reports: [report('m1'), report('m2')], total: 2 },
+  });
+  assert.deepEqual(rowsOf(both.tree), [['f1', 'm1'], ['m2']]);
+});
+
+test('more marked reports than fit lead to the No animal filter', () => {
+  const { tree, opened } = dashboard({}, {}, {
+    unseen: { reports: [report('m1'), report('m2'), report('m3')], total: 7 },
+  });
+  const seeAll = findElement(tree, (node) => node.props?.onPress && [].concat(node.props.children).join('') === 'See all 7 reports with no animal seen');
+  assert.ok(seeAll);
+  seeAll.props.onPress();
+  assert.deepEqual(opened, ['unseen']);
 });
