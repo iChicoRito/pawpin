@@ -52,3 +52,6 @@ prompts
 
 # planning docs stay local, never pushed
 docs/
+
+# the landing page APK: a release build copied in by hand, too big for GitHub
+landing/public/pawpin.apk

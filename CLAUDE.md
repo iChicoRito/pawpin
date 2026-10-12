@@ -32,6 +32,7 @@ PawPin is a phone app for reporting stray animals with an exact location, so res
 - `src/lib/flags.ts` — the flag reasons, sending a flag, and the admin's read of flagged reports.
 - `src/app/safety.tsx` — the safety tips. The words are in the file.
 - `src/lib/supabase.ts`, `src/lib/auth.ts` — Supabase client and Google sign-in.
+- `landing/` — the public landing page, a small Vite project with its own `package.json`: `index.html`, `styles.css`, `main.js`. In that folder, `npm run dev` previews it and `npm run build` writes `landing/dist/`, minified, which is what gets uploaded. Its pictures in `landing/assets` are copies from `assets/` and `video/out`. `landing/public/pawpin.apk` is a release build (`cd android && ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a`; without that flag it also carries emulator code and is 230 MB) copied in by hand and ignored by Git; a debug build does not open without the dev server. Minifying makes the source harder to read, not hidden: a browser can always show what it was sent.
 - `supabase/migrations/` — SQL, numbered in the order it was applied.
 - `supabase/tests/` — check scripts that roll themselves back. Paste into the Supabase SQL Editor to run.
 - `docs/` — analysis and phase plans. Local only, see below.

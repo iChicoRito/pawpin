@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PawPin: report a stray, help it get found</title>
+<meta name="description" content="PawPin helps communities report stray animals, find nearby reports, and coordinate rescue efforts. Download the Android app.">
+<meta name="theme-color" content="#F5BC1E">
+<link rel="icon" href="assets/icon.png">
+<script>
+  // The saved theme, or the system one, set before the first paint.
+  try { var t = localStorage.getItem("theme"); } catch (e) {}
+  document.documentElement.dataset.theme = t || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+</script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- Hugeicons, the same set the app uses. -->
+<svg width="0" height="0" class="defs" aria-hidden="true">
+  <symbol id="i-Download01Icon" viewBox="0 0 24 24" fill="none"><path d="M2.99969 17.0002C2.99969 17.9302 2.99969 18.3952 3.10192 18.7767C3.37932 19.8119 4.18796 20.6206 5.22324 20.898C5.60474 21.0002 6.06972 21.0002 6.99969 21.0002L16.9997 21.0002C17.9297 21.0002 18.3947 21.0002 18.7762 20.898C19.8114 20.6206 20.6201 19.8119 20.8975 18.7767C20.9997 18.3952 20.9997 17.9302 20.9997 17.0002" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M16.4998 11.5002C16.4998 11.5002 13.1856 16.0002 11.9997 16.0002C10.8139 16.0002 7.49976 11.5002 7.49976 11.5002M11.9997 15.0002V3.00016" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-PlayIcon" viewBox="0 0 24 24" fill="none"><path d="M18.8906 12.846C18.5371 14.189 16.8667 15.138 13.5257 17.0361C10.296 18.8709 8.6812 19.7884 7.37983 19.4196C6.8418 19.2671 6.35159 18.9776 5.95624 18.5787C5 17.6139 5 15.7426 5 12C5 8.2574 5 6.3861 5.95624 5.42132C6.35159 5.02245 6.8418 4.73288 7.37983 4.58042C8.6812 4.21165 10.296 5.12907 13.5257 6.96393C16.8667 8.86197 18.5371 9.811 18.8906 11.154C19.0365 11.7084 19.0365 12.2916 18.8906 12.846Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Camera01Icon" viewBox="0 0 24 24" fill="none"><path d="M12.6974 3.5H11.303C10.5884 3.5 10.2311 3.5 9.91067 3.612C9.71499 3.68039 9.53113 3.77879 9.36568 3.90367C9.09474 4.10816 8.89655 4.40544 8.50018 5L8.50017 5.00001C8.29717 5.30453 7.99794 5.75337 7.87867 5.87871C7.58314 6.18927 7.19563 6.39666 6.77329 6.47029C6.60284 6.5 6.41985 6.5 6.05387 6.5C5.07379 6.5 4.58376 6.5 4.18307 6.61342C3.18074 6.89716 2.39734 7.68055 2.1136 8.68289C2.00018 9.08357 2.00018 9.57361 2.00018 10.5537V14.5C2.00018 17.3284 2.00018 18.7426 2.87886 19.6213C3.75754 20.5 5.17176 20.5 8.00018 20.5H16.0002C18.8286 20.5 20.2428 20.5 21.1215 19.6213C22.0002 18.7426 22.0002 17.3284 22.0002 14.5V10.5537C22.0002 9.57361 22.0002 9.08357 21.8868 8.68289C21.603 7.68055 20.8196 6.89716 19.8173 6.61342C19.4166 6.5 18.9266 6.5 17.9465 6.5C17.5805 6.5 17.3975 6.5 17.2271 6.47029C16.8047 6.39666 16.4172 6.18927 16.1217 5.87871C16.0024 5.75336 15.7032 5.30451 15.5002 5C15.1038 4.40544 14.9056 4.10816 14.6347 3.90367C14.4692 3.77879 14.2854 3.68039 14.0897 3.612C13.7693 3.5 13.412 3.5 12.6974 3.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M16.0002 13C16.0002 15.2091 14.2093 17 12.0002 17C9.79104 17 8.00018 15.2091 8.00018 13C8.00018 10.7909 9.79104 9 12.0002 9C14.2093 9 16.0002 10.7909 16.0002 13Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M19.1252 9.5H19.0002M19.2502 9.5C19.2502 9.63807 19.1383 9.75 19.0002 9.75C18.8621 9.75 18.7502 9.63807 18.7502 9.5C18.7502 9.36193 18.8621 9.25 19.0002 9.25C19.1383 9.25 19.2502 9.36193 19.2502 9.5Z" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Megaphone01Icon" viewBox="0 0 24 24" fill="none"><path d="M9 14V6H6C5.07003 6 4.60504 6 4.22354 6.10222C3.18827 6.37962 2.37962 7.18827 2.10222 8.22354C2 8.60504 2 9.07003 2 10C2 10.93 2 11.395 2.10222 11.7765C2.37962 12.8117 3.18827 13.6204 4.22354 13.8978C4.60504 14 5.07003 14 6 14H9Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M9 14L9.96466 18.8233C9.98816 18.9408 10 19.0604 10 19.1802V19.3411C10 20.2573 9.25728 21 8.34109 21C7.55885 21 6.8829 20.4536 6.719 19.6887L5.5 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M10 6H9V14H10C11.2982 14 12.5614 14.4211 13.6 15.2L15.747 16.8103C15.9112 16.9334 16.111 17 16.3162 17C16.7246 17 17.0909 16.7404 17.2088 16.3495C17.5537 15.2067 18 13.2728 18 10C18 6.72718 17.5537 4.79327 17.2088 3.65054C17.0909 3.25961 16.7246 3 16.3162 3C16.111 3 15.9112 3.06658 15.747 3.18974L13.6 4.8C12.5614 5.57893 11.2982 6 10 6Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M21 9.99996H22M20.5 6.00109L21.5 5.40637M20.5 14L21.5 14.6481" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Navigation03Icon" viewBox="0 0 24 24" fill="none"><path d="M11.922 4.79004C16.6963 3.16245 19.0834 2.34866 20.3674 3.63261C21.6513 4.91656 20.8375 7.30371 19.21 12.078L18.1016 15.3292C16.8517 18.9958 16.2267 20.8291 15.1964 20.9808C14.9195 21.0216 14.6328 20.9971 14.3587 20.9091C13.3395 20.5819 12.8007 18.6489 11.7231 14.783C11.4841 13.9255 11.3646 13.4967 11.0924 13.1692C11.0134 13.0742 10.9258 12.9866 10.8308 12.9076C10.5033 12.6354 10.0745 12.5159 9.21705 12.2769C5.35111 11.1993 3.41814 10.6605 3.0909 9.64127C3.00292 9.36724 2.97837 9.08053 3.01916 8.80355C3.17088 7.77332 5.00419 7.14834 8.6708 5.89838L11.922 4.79004Z" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-HeartCheckIcon" viewBox="0 0 24 24" fill="none"><path d="M13 20.3025C12.1525 20.6505 11.1746 20.5389 10.4107 19.9677C7.58942 17.858 2 13.0348 2 8.69444C2 5.82563 4.10526 3.5 7 3.5C8.5 3.5 10 4 12 6C14 4 15.5 3.5 17 3.5C19.8947 3.5 22 5.82563 22 8.69444C22 9.12591 21.9448 9.56214 21.8425 10" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M14 17C14 17 15 17 16 19C16 19 19.1765 14 22 13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Tick02Icon" viewBox="0 0 24 24" fill="none"><path d="M5 14L8.5 17.5L19 6.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-ViewIcon" viewBox="0 0 24 24" fill="none"><path d="M21.544 11.045C21.848 11.4713 22 11.6845 22 12C22 12.3155 21.848 12.5287 21.544 12.955C20.1779 14.8706 16.6892 19 12 19C7.31078 19 3.8221 14.8706 2.45604 12.955C2.15201 12.5287 2 12.3155 2 12C2 11.6845 2.15201 11.4713 2.45604 11.045C3.8221 9.12944 7.31078 5 12 5C16.6892 5 20.1779 9.12944 21.544 11.045Z" stroke="currentColor" stroke-width="1.5"/><path d="M15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12Z" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-TurtleIcon" viewBox="0 0 24 24" fill="none"><path d="M17 12C17 8.13401 13.866 5 10 5C6.13401 5 3 8.13401 3 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M17 15C18.6569 15 20 13.6569 20 12C21.1046 12 22 11.1046 22 10C22 8.89543 21.1046 8 20 8H19.5C18.1193 8 17 9.11929 17 10.5V12" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M3 14.5L2.6405 17.376C2.5659 17.9728 3.03128 18.5 3.63278 18.5H5C5.55228 18.5 6 18.0523 6 17.5V15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M14 15V17.5C14 18.0523 14.4477 18.5 15 18.5H16.347C16.9555 18.5 17.423 17.961 17.3369 17.3586L17 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M17 12H15.4343C14.4911 12 13.5608 12.2196 12.7171 12.6414C11.0067 13.4967 8.99334 13.4967 7.28286 12.6414C6.43921 12.2196 5.50894 12 4.56572 12H2V12.882C2 13.5672 2.38713 14.1936 3 14.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M6 16C8.51806 17.259 11.4819 17.259 14 16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Door01Icon" viewBox="0 0 24 24" fill="none"><path d="M18 20C19.1046 20 20 19.1046 20 18V6C20 4.89543 19.1046 4 18 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4 6.84771V17.1523C4 18.7454 4 19.542 4.4645 20.0976C4.92899 20.6531 5.71415 20.7956 7.28446 21.0806L10.2845 21.6251C12.4701 22.0217 13.563 22.2201 14.2815 21.6215C15 21.023 15 19.9142 15 17.6968V6.30325C15 4.08578 15 2.97704 14.2815 2.37849C13.563 1.77994 12.4701 1.97827 10.2845 2.37495L7.28446 2.91941C5.71415 3.2044 4.92899 3.34689 4.4645 3.90244C4 4.45799 4 5.25457 4 6.84771Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11.625 12H11.5M11.75 12C11.75 12.1381 11.6381 12.25 11.5 12.25C11.3619 12.25 11.25 12.1381 11.25 12C11.25 11.8619 11.3619 11.75 11.5 11.75C11.6381 11.75 11.75 11.8619 11.75 12Z" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-HandIcon" viewBox="0 0 24 24" fill="none"><path d="M18.5 11.5V8.75C18.5 7.7835 19.2835 7 20.25 7C21.2165 7 22 7.7835 22 8.75V14.8C22 18.7765 18.7764 22 14.8 22H12.0588M8 14L5.61507 11.2176C5.22468 10.7621 4.65476 10.5 4.05489 10.5H3.91898C2.85916 10.5 2 11.3592 2 12.419C2 12.7978 2.11214 13.1682 2.32229 13.4834L5.7812 18.6718C7.16738 20.7511 9.50102 22 12 22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M18.5 8.5V5.75C18.5 4.7835 17.7165 4 16.75 4C15.7835 4 15 4.7835 15 5.75V10.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M15 10.5V3.75C15 2.7835 14.2165 2 13.25 2C12.2835 2 11.5 2.7835 11.5 3.75V10" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11.5 10V5.75C11.5 4.7835 10.7165 4 9.75 4C8.7835 4 8 4.7835 8 5.75V14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Location01Icon" viewBox="0 0 24 24" fill="none"><path d="M13.6177 21.367C13.1841 21.773 12.6044 22 12.0011 22C11.3978 22 10.8182 21.773 10.3845 21.367C6.41302 17.626 1.09076 13.4469 3.68627 7.37966C5.08963 4.09916 8.45834 2 12.0011 2C15.5439 2 18.9126 4.09916 20.316 7.37966C22.9082 13.4393 17.599 17.6389 13.6177 21.367Z" stroke="currentColor" stroke-width="1.5"/><path d="M15.5 11C15.5 12.933 13.933 14.5 12 14.5C10.067 14.5 8.5 12.933 8.5 11C8.5 9.067 10.067 7.5 12 7.5C13.933 7.5 15.5 9.067 15.5 11Z" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-Notification03Icon" viewBox="0 0 24 24" fill="none"><path d="M20 18.5011L18.349 7.93407C17.8603 4.80601 15.166 2.5 12 2.5C8.83398 2.5 6.13971 4.80601 5.65098 7.93407L4 18.5011" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M20 18.5C20 16.8431 16.4183 15.5 12 15.5C7.58172 15.5 4 16.8431 4 18.5C4 20.1569 7.58172 21.5 12 21.5C16.4183 21.5 20 20.1569 20 18.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 18.5H11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Moon02Icon" viewBox="0 0 24 24" fill="none"><path d="M21.5 14.0784C20.3003 14.7189 18.9301 15.0821 17.4751 15.0821C12.7491 15.0821 8.91792 11.2509 8.91792 6.52485C8.91792 5.06986 9.28105 3.69968 9.92163 2.5C5.66765 3.49698 2.5 7.31513 2.5 11.8731C2.5 17.1899 6.8101 21.5 12.1269 21.5C16.6849 21.5 20.503 18.3324 21.5 14.0784Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+  <symbol id="i-Sun03Icon" viewBox="0 0 24 24" fill="none"><path d="M17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 2V3.5M12 20.5V22M19.0708 19.0713L18.0101 18.0106M5.98926 5.98926L4.9286 4.9286M22 12H20.5M3.5 12H2M19.0713 4.92871L18.0106 5.98937M5.98975 18.0107L4.92909 19.0714" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></symbol>
+</svg>
+
+<!-- The map drawn the way the app's light and dark styles look: blocks, streets, one main road, water. -->
+<svg width="0" height="0" class="defs" aria-hidden="true">
+  <defs>
+    <pattern id="blocks" width="96" height="80" patternUnits="userSpaceOnUse">
+      <rect x="5" y="5" width="86" height="70" rx="4" class="m-land"/>
+      <rect x="13" y="13" width="30" height="24" rx="3" class="m-build"/>
+      <rect x="51" y="13" width="32" height="20" rx="3" class="m-build"/>
+      <rect x="13" y="45" width="38" height="22" rx="3" class="m-build"/>
+      <rect x="59" y="41" width="24" height="26" rx="3" class="m-build"/>
+    </pattern>
+    <symbol id="map" viewBox="0 0 400 520" preserveAspectRatio="xMidYMid slice">
+      <rect width="400" height="520" class="m-street"/>
+      <g transform="rotate(-9 200 260)">
+        <rect x="-120" y="-120" width="640" height="760" fill="url(#blocks)"/>
+        <rect x="5" y="-75" width="182" height="150" rx="4" class="m-park"/>
+        <rect x="-120" y="76" width="640" height="18" class="m-main"/>
+        <rect x="283" y="-120" width="18" height="760" class="m-main"/>
+        <rect x="-120" y="480" width="640" height="80" class="m-water"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="top">
+  <div class="wrap nav-row">
+    <a href="#top" class="brand" aria-label="PawPin, back to top">
+      <img class="logo-light" src="assets/wordmark-light.svg" alt="PawPin" width="735" height="186">
+      <img class="logo-dark" src="assets/wordmark-dark.svg" alt="PawPin" width="735" height="186">
+    </a>
+    <nav aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#video">Video</a>
+      <a href="#safety">Safety</a>
+    </nav>
+    <button type="button" class="theme-btn" aria-label="Switch between light and dark">
+      <svg class="ic ic-moon"><use href="#i-Moon02Icon"/></svg>
+      <svg class="ic ic-sun"><use href="#i-Sun03Icon"/></svg>
+    </button>
+    <a class="btn btn-sm" href="#download">Get the app</a>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero wrap">
+  <div class="hero-copy">
+    <h1>Every paw deserves <em>a way home.</em></h1>
+    <p class="lead">PawPin helps communities report stray animals, find nearby reports, and coordinate rescue efforts.</p>
+    <div class="cta-row">
+      <a class="btn" href="pawpin.apk" download data-apk>
+        <svg class="ic"><use href="#i-Download01Icon"/></svg>
+        Download APK
+      </a>
+      <a class="btn btn-ghost" href="#video">
+        <svg class="ic"><use href="#i-PlayIcon"/></svg>
+        Watch the video
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-art" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="phone">
+      <div class="screen">
+        <svg class="map"><use href="#map"/></svg>
+        <img class="pin p1 u-critical" src="assets/paw-critical.png" alt="">
+        <img class="pin p2 u-soon" src="assets/paw-needs_help_soon.png" alt="">
+        <img class="pin p3 u-sighted" src="assets/paw-just_sighted.png" alt="">
+        <img class="pin p4 u-soon" src="assets/paw-needs_help_soon.png" alt="">
+        <img class="pin p5 u-sighted" src="assets/paw-just_sighted.png" alt="">
+        <span class="you"></span>
+        <div class="drawer">
+          <img src="assets/dog-wall.jpg" alt="">
+          <div>
+            <span class="chip chip-critical">Critical</span>
+            <strong>Dog</strong>
+            <small>350 m away</small>
+            <small>Waiting for a rescuer</small>
+          </div>
+        </div>
+        <div class="tabs"><b>Map</b><span>List</span><span>Report</span><span>Profile</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="how wrap" id="how">
+  <h2 class="reveal">From a photo on the street to a rescue.</h2>
+  <ol class="steps">
+    <li class="reveal" style="--i:0">
+      <span class="step-ic"><svg class="ic"><use href="#i-Camera01Icon"/></svg></span>
+      <h3>Take a photo</h3>
+      <p>The place and time are fixed the moment the first photo is taken, so the pin is where the animal was.</p>
+    </li>
+    <li class="reveal" style="--i:1">
+      <span class="step-ic"><svg class="ic"><use href="#i-Megaphone01Icon"/></svg></span>
+      <h3>Say how urgent it is</h3>
+      <p>Pick the animal, its size, color, and condition, then one of three urgency levels. Add a landmark if it helps.</p>
+    </li>
+    <li class="reveal" style="--i:2">
+      <span class="step-ic"><svg class="ic"><use href="#i-Navigation03Icon"/></svg></span>
+      <h3>A rescuer answers</h3>
+      <p>Someone nearby taps <b>I’m on my way</b>. One rescuer per report, so two people do not make the same trip.</p>
+    </li>
+    <li class="reveal" style="--i:3">
+      <span class="step-ic"><svg class="ic"><use href="#i-HeartCheckIcon"/></svg></span>
+      <h3>It ends with an outcome</h3>
+      <p>Rescued, or not found. The person who reported it is told either way.</p>
+    </li>
+  </ol>
+</section>
+
+<section class="wrap" id="features">
+  <h2 class="reveal">What is in the app.</h2>
+
+  <div class="bento">
+
+    <article class="tile t-urgency reveal" style="--i:0">
+      <div class="t-body">
+        <h3>Each pin says how urgent.</h3>
+        <ul class="legend">
+          <li><img src="assets/paw-critical.png" alt=""><div><b>Critical</b><span>Badly hurt or in danger right now.</span></div></li>
+          <li><img src="assets/paw-needs_help_soon.png" alt=""><div><b>Needs help soon</b><span>Hurt, sick, or weak, but not in danger right now.</span></div></li>
+          <li><img src="assets/paw-just_sighted.png" alt=""><div><b>Just sighted</b><span>Looks fine. Sharing where it was seen.</span></div></li>
+        </ul>
+      </div>
+      <div class="t-map" aria-hidden="true">
+        <svg class="map"><use href="#map"/></svg>
+        <img class="pin q1 u-critical" src="assets/paw-critical.png" alt="">
+        <img class="pin q2 u-soon" src="assets/paw-needs_help_soon.png" alt="">
+        <img class="pin q3 u-sighted" src="assets/paw-just_sighted.png" alt="">
+        <img class="pin q4 u-sighted" src="assets/paw-just_sighted.png" alt="">
+        <img class="pin q5 u-soon" src="assets/paw-needs_help_soon.png" alt="">
+        <img class="pin q6 u-critical" src="assets/paw-critical.png" alt="">
+      </div>
+    </article>
+
+    <article class="tile t-check reveal" style="--i:1">
+      <div class="shot" aria-hidden="true">
+        <img src="assets/cat-tabby.jpg" alt="" loading="lazy">
+        <span class="scan"></span>
+        <span class="toast"><svg class="ic"><use href="#i-Tick02Icon"/></svg>Cat detected</span>
+      </div>
+      <div class="t-body">
+        <h3>The phone checks the photo.</h3>
+        <p>It looks for an animal in your photos before you fill in the form, with no internet. If it sees none it asks first. You can still send.</p>
+      </div>
+    </article>
+
+    <article class="tile t-alert reveal" style="--i:0">
+      <div class="notices" aria-hidden="true">
+        <div class="notice"><img src="assets/icon.png" alt=""><div><b>Stray reported nearby</b><span>Dog · public market</span></div></div>
+        <div class="notice"><img src="assets/icon.png" alt=""><div><b>The dog you reported was rescued</b><span>Someone helped it. Thank you for reporting.</span></div></div>
+      </div>
+      <div class="t-body">
+        <h3>Alerts inside your distance.</h3>
+        <p>Choose 1, 5, 10, or 25 km. A new report inside it reaches your phone, at most five an hour. Reporters hear how it ended.</p>
+      </div>
+    </article>
+
+    <article class="tile t-live reveal" style="--i:1">
+      <ol class="track" aria-hidden="true">
+        <li>Waiting for a rescuer</li>
+        <li>Someone is on the way</li>
+        <li>Rescued</li>
+      </ol>
+      <div class="t-body">
+        <h3>Status that moves by itself.</h3>
+        <p>When a rescuer claims a report or finishes it, every open screen changes. Nobody has to refresh.</p>
+      </div>
+    </article>
+
+    <article class="tile t-dir reveal" style="--i:2">
+      <div class="sheet" aria-hidden="true">
+        <small>Open with</small>
+        <span><img src="assets/google-maps.svg" alt="">Google Maps</span>
+        <span><img src="assets/waze.svg" alt="">Waze</span>
+      </div>
+      <div class="t-body">
+        <h3>Directions in the app you already use.</h3>
+        <p>One tap hands the exact spot to Google Maps or Waze.</p>
+      </div>
+    </article>
+
+    <article class="tile t-list reveal" style="--i:0">
+      <div class="t-body">
+        <h3>Or see them as a list.</h3>
+        <p>Nearest first. Filter by distance, or show only your own reports.</p>
+        <div class="chips" aria-hidden="true">
+          <span>1 km</span><span class="on">5 km</span><span>10 km</span><span>25 km</span>
+        </div>
+      </div>
+      <ul class="cards" aria-hidden="true">
+        <li><img src="assets/dog-wall.jpg" alt="" loading="lazy"><div><b>Dog</b><span>350 m away</span></div><span class="chip chip-critical">Critical</span></li>
+        <li><img src="assets/cat-orange.jpg" alt="" loading="lazy"><div><b>Cat</b><span>3.2 km away</span></div><span class="chip chip-soon">Needs help soon</span></li>
+        <li class="out"><img src="assets/dog-road.jpg" alt="" loading="lazy"><div><b>Dog</b><span>8 km away</span></div><span class="chip chip-sighted">Just sighted</span></li>
+      </ul>
+    </article>
+
+    <article class="tile t-history reveal" style="--i:1">
+      <img class="bg" src="assets/dogs-cobbles.jpg" alt="" loading="lazy">
+      <div class="t-body">
+        <h3>Every rescue stays with you.</h3>
+        <p>Your reports and Your rescues live in your profile, each with how it ended.</p>
+      </div>
+    </article>
+
+    <article class="tile t-signin reveal" style="--i:0">
+      <div class="signin" aria-hidden="true">
+        <span class="fake-btn"><img src="assets/google.svg" alt="">Continue with Google</span>
+        <span class="fake-btn alt">Continue as Guest</span>
+      </div>
+      <div class="t-body">
+        <h3>Google or guest.</h3>
+        <p>Guests can report strays. No form to fill in first.</p>
+      </div>
+    </article>
+
+    <article class="tile t-clean reveal" style="--i:1">
+      <div class="clock" aria-hidden="true"><b>72</b><small>hours</small></div>
+      <div class="t-body">
+        <h3>The map stays current.</h3>
+        <p>A report nobody touches for 72 hours closes by itself. Anyone can flag one that looks wrong.</p>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="wrap video" id="video">
+  <h2 class="reveal">One minute, start to rescue.</h2>
+  <div class="player reveal">
+    <video src="assets/promo.mp4" poster="assets/poster.jpg" preload="none" controls playsinline width="1440" height="1080"></video>
+    <button type="button" class="play" aria-label="Play the PawPin video">
+      <svg class="ic"><use href="#i-PlayIcon"/></svg>
+    </button>
+  </div>
+</section>
+
+<section class="wrap safety" id="safety">
+  <figure class="reveal">
+    <img src="assets/dog-rock.jpg" alt="A stray dog standing on a rock, watching" loading="lazy" width="1200" height="800">
+  </figure>
+  <div>
+    <h2 class="reveal">Stay safe on the way there.</h2>
+    <p class="lead reveal">The app carries safety tips for going near an animal you do not know. Four of them:</p>
+    <ul class="tips">
+      <li class="reveal" style="--i:0"><svg class="ic"><use href="#i-ViewIcon"/></svg><div><b>Keep your distance at first</b><span>Watch it before you go near. A scared or hurt animal may bite.</span></div></li>
+      <li class="reveal" style="--i:1"><svg class="ic"><use href="#i-TurtleIcon"/></svg><div><b>Move slowly and stay low</b><span>No sudden moves or loud voice. Do not stare or stand over it.</span></div></li>
+      <li class="reveal" style="--i:2"><svg class="ic"><use href="#i-Door01Icon"/></svg><div><b>Do not corner it</b><span>Leave it a way out. An animal with no escape defends itself.</span></div></li>
+      <li class="reveal" style="--i:3"><svg class="ic"><use href="#i-HandIcon"/></svg><div><b>Protect your hands</b><span>Use a towel, a blanket, or thick gloves if you must touch it.</span></div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="wrap" id="download">
+  <div class="dl reveal">
+    <div class="dl-main">
+      <img src="assets/icon.png" alt="" width="96" height="96">
+      <h2>Get PawPin for Android.</h2>
+      <p>Free. The file comes straight from this page, not from an app store.</p>
+      <a class="btn btn-dark" href="pawpin.apk" download data-apk>
+        <svg class="ic"><use href="#i-Download01Icon"/></svg>
+        Download APK
+      </a>
+      <p class="meta"><span>Version 1.0.0</span><span>Android 7.0 or later</span><span data-apk-size hidden></span></p>
+      <p class="apk-missing" data-apk-missing hidden>The APK is not on this server yet.</p>
+    </div>
+    <div class="dl-side">
+      <h3>Installing it</h3>
+      <ol>
+        <li><span>Tap <b>Download APK</b> on your Android phone.</span></li>
+        <li><span>Open the file. If Android asks, allow your browser to install apps.</span></li>
+        <li><span>Tap <b>Install</b>, then open PawPin.</span></li>
+      </ol>
+      <h3>What it asks for</h3>
+      <ul>
+        <li><svg class="ic"><use href="#i-Camera01Icon"/></svg><span><b>Camera</b>, to photograph the stray you are reporting.</span></li>
+        <li><svg class="ic"><use href="#i-Location01Icon"/></svg><span><b>Location</b>, so rescuers can find the animal. Only while the app is open.</span></li>
+        <li><svg class="ic"><use href="#i-Notification03Icon"/></svg><span><b>Notifications</b>, for alerts about strays near you. You can skip this.</span></li>
+      </ul>
+      <p class="fine">There is no iPhone version.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap foot">
+  <img class="logo-light" src="assets/LightMode.svg" alt="PawPin. Every paw deserves a way home." width="735" height="253" loading="lazy">
+  <img class="logo-dark" src="assets/DarkMode.svg" alt="PawPin. Every paw deserves a way home." width="735" height="253" loading="lazy">
+  <p>Developed by Mark Adrianne Salunga</p>
+</footer>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
