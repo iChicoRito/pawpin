@@ -19,23 +19,6 @@ new IntersectionObserver(([entry]) => nav.classList.toggle('stuck', !entry.isInt
   document.querySelector('.hero h1')
 );
 
-// The file size is read from the APK itself, so it is right after every new build.
-// With no file on the server, the buttons say so instead of handing over an error page.
-fetch('pawpin.apk', { method: 'HEAD' })
-  .then((response) => {
-    const bytes = Number(response.headers.get('content-length'));
-    if (!response.ok) throw new Error(String(response.status));
-    if (!bytes) return;
-    document.querySelectorAll('[data-apk-size]').forEach((el) => {
-      el.textContent = `${Math.round(bytes / 1048576)} MB`;
-      el.hidden = false;
-    });
-  })
-  .catch(() => {
-    document.querySelectorAll('[data-apk]').forEach((el) => el.setAttribute('aria-disabled', 'true'));
-    document.querySelector('[data-apk-missing]').hidden = false;
-  });
-
 // The video's own play button, until the video starts.
 const video = document.querySelector('.player video');
 const play = document.querySelector('.play');

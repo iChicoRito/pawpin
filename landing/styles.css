@@ -115,7 +115,6 @@ section > h2 { margin-bottom: clamp(28px, 4vw, 56px); }
 .btn-ghost:hover { box-shadow: inset 0 0 0 1.5px var(--text); }
 .btn-dark { background: var(--brown); color: #fff; box-shadow: 0 14px 28px -14px var(--brown); }
 .btn-dark:hover { box-shadow: 0 20px 32px -14px var(--brown); }
-.btn[aria-disabled='true'] { opacity: 0.55; pointer-events: none; }
 
 .meta { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 0.9rem; color: var(--muted); }
 
@@ -266,7 +265,6 @@ section > h2 { margin-bottom: clamp(28px, 4vw, 56px); }
 .dl-main img { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 16px 30px -16px var(--brown); }
 .dl-main p { max-width: 34ch; }
 .dl .meta { color: var(--brown); }
-.apk-missing { font-weight: 600; }
 .dl-side { margin: 14px; padding: clamp(24px, 4vw, 44px); border-radius: 28px; background: var(--bg); color: var(--text); display: grid; gap: 14px; align-content: center; }
 .dl-side h3 { font-size: 1.1rem; }
 .dl-side h3:not(:first-child) { margin-top: 14px; }
