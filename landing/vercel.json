@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/PawPin-v1.0.0.apk",
-      "destination": "https://github.com/iChicoRito/pawpin/releases/download/v1.0.0/PawPin-v1.0.0.apk"
+      "source": "/PawPin-v1.1.0.apk",
+      "destination": "https://github.com/iChicoRito/pawpin/releases/download/1.1.0/PawPin-v1.1.0.apk"
     }
   ]
 }
