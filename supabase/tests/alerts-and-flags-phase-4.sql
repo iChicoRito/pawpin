@@ -20,14 +20,16 @@ select ('00000000-0000-4000-8000-0000000000a' || n)::uuid,
   array['https://example.invalid/rollback-fixture.jpg']
 from generate_series(1, 7) n;
 
--- The message waiting for a phone about a report, or null.
+-- The outcome notice waiting for a phone about a report, or null. Since 0033 other events push
+-- too; theirs carry a notificationId and are checked in report-notifications-phase-2.sql.
 create function pg_temp.notice(report uuid, token text) returns jsonb
 language sql as $$
   select message
   from net.http_request_queue q,
     jsonb_array_elements(convert_from(q.body, 'utf8')::jsonb) message
   where message -> 'data' ->> 'reportId' = report::text
-    and message ->> 'to' = token;
+    and message ->> 'to' = token
+    and not message -> 'data' ? 'notificationId';
 $$;
 
 -- Runs one statement as a signed-in user, the way the app would.
@@ -54,7 +56,7 @@ begin
   -- Rescued by someone else: the reporter is told.
   perform pg_temp.as_user(rescuer, format('select public.claim_report(%L)', r || '1'));
   if pg_temp.notice((r || '1')::uuid, 'tok-a') is not null then
-    raise exception 'FAIL: a claim alone sent a notice';
+    raise exception 'FAIL: a claim alone sent an outcome notice';
   end if;
   perform pg_temp.as_user(rescuer, format('select public.resolve_report(%L, %L)', r || '1', 'rescued'));
   message := pg_temp.notice((r || '1')::uuid, 'tok-a');
@@ -77,7 +79,9 @@ begin
     raise exception 'FAIL: unexpected not-found notice %', message;
   end if;
 
-  select count(*) into waiting from net.http_request_queue;
+  select count(*) into waiting from net.http_request_queue q,
+    jsonb_array_elements(convert_from(q.body, 'utf8')::jsonb) m
+  where not m -> 'data' ? 'notificationId';
 
   -- The reporter ends their own report, either way: nothing to tell them.
   perform pg_temp.as_user(reporter, format('select public.close_report(%L, true)', r || '3'));
@@ -95,9 +99,10 @@ begin
     raise exception 'FAIL: an outcome was not saved for a reporter with no phone';
   end if;
 
-  if (select count(*) from net.http_request_queue) <> waiting then
-    raise exception 'FAIL: a notice was sent where none was due (% more)',
-      (select count(*) from net.http_request_queue) - waiting;
+  if (select count(*) from net.http_request_queue q,
+      jsonb_array_elements(convert_from(q.body, 'utf8')::jsonb) m
+    where not m -> 'data' ? 'notificationId') <> waiting then
+    raise exception 'FAIL: an outcome notice was sent where none was due';
   end if;
 
   -- Outcome notices do not count toward the hourly limit.
