@@ -5,6 +5,7 @@ import InformationCircleIcon from '@hugeicons/core-free-icons/InformationCircleI
 import Megaphone01Icon from '@hugeicons/core-free-icons/Megaphone01Icon';
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
 import Notification01Icon from '@hugeicons/core-free-icons/Notification01Icon';
+import InboxIcon from '@hugeicons/core-free-icons/InboxIcon';
 import Settings01Icon from '@hugeicons/core-free-icons/Settings01Icon';
 import UserIcon from '@hugeicons/core-free-icons/UserIcon';
 import UserSwitchIcon from '@hugeicons/core-free-icons/UserSwitchIcon';
@@ -35,12 +36,13 @@ import { setAppearance, useAppearance } from '@/lib/appearance';
 import { linkGoogle, signInWithGoogle, type AuthFlowError } from '@/lib/auth';
 import { initialsOf } from '@/lib/format';
 import { RADIUS_CHOICES } from '@/lib/nearby';
+import { useUnreadCount } from '@/lib/notifications';
 
 export default function ProfileScreen() {
   const { session, isGuest, isAdmin, name, avatarUrl } = useSession();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [foreground, accent] = useThemeColor(['foreground', 'accent']);
+  const [foreground, accent, danger] = useThemeColor(['foreground', 'accent', 'danger']);
   const appearance = useAppearance();
   const colorScheme = useColorScheme();
   const isDark = appearance === 'dark' || (appearance === 'system' && colorScheme === 'dark');
@@ -48,6 +50,7 @@ export default function ProfileScreen() {
   const [permission] = useAlertPermission();
   const [alertRadiusM, setAlertRadiusM] = useState<number | null>(null);
   const userId = session?.user.id;
+  const unread = useUnreadCount(isAdmin ? undefined : userId);
 
   // Tabs stay mounted, so this runs each time the Profile tab comes back into view: the distance
   // may have just been changed on the Alerts screen. A failed read leaves the row's line as it was.
@@ -70,6 +73,20 @@ export default function ProfileScreen() {
   // The rows of the menu, top to bottom.
   const options = [
     // An admin looks after everyone's reports and sends none: their menu is only about the app.
+    !isAdmin && {
+      icon: InboxIcon,
+      title: 'Notifications',
+      // Says how many are new, once it is known.
+      description:
+        unread == null
+          ? 'What happened to your reports.'
+          : unread === 0
+            ? 'Nothing new'
+            : `${unread} unread`,
+      // A red dot on the icon while anything is unread.
+      hasBadge: !!unread,
+      onPress: () => router.push('/notifications'),
+    },
     !isAdmin && {
       icon: Megaphone01Icon,
       title: 'Your reports',
@@ -173,7 +190,13 @@ export default function ProfileScreen() {
                 focusable={!!option.onPress}
                 onPress={option.onPress}>
                 <ListGroup.ItemPrefix>
-                  <HugeiconsIcon icon={option.icon} size={20} color={foreground} />
+                  <View>
+                    <HugeiconsIcon icon={option.icon} size={20} color={foreground} />
+                    {/* Seen without reading the row. The count is in the line under the title. */}
+                    {option.hasBadge && (
+                      <View aria-hidden style={[styles.badge, { backgroundColor: danger }]} />
+                    )}
+                  </View>
                 </ListGroup.ItemPrefix>
                 <ListGroup.ItemContent>
                   <ListGroup.ItemTitle>{option.title}</ListGroup.ItemTitle>
@@ -321,6 +344,15 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.four,
+  },
+  // On the icon's top corner, ringed by nothing: small enough not to hide the icon.
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
   },
   // Who this is, in the middle of the page: the photo, then the name, then one quiet line.
   identity: {

@@ -33,6 +33,7 @@ test('About PawPin opens from Profile for guests, users, and admins', () => {
       '@/lib/appearance': { useAppearance: () => 'light' },
       '@/lib/auth': {}, '@/lib/format': { initialsOf: () => 'T' },
       '@/lib/nearby': { RADIUS_CHOICES: [] },
+      '@/lib/notifications': { useUnreadCount: () => null },
     });
     const tree = Profile();
     const row = findElement(tree, (node) => node.type === Item &&

@@ -36,6 +36,7 @@ function profile(appearance, colorScheme, isAdmin = false) {
       APPEARANCES: [{ value: appearance, label: appearance }] },
     '@/lib/auth': {}, '@/lib/format': { initialsOf: () => 'T' },
     '@/lib/nearby': { RADIUS_CHOICES: [] },
+    '@/lib/notifications': { useUnreadCount: () => 3 },
   });
   return { tree: Profile(), saved: () => saved };
 }

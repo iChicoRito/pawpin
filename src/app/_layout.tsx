@@ -68,6 +68,16 @@ function Screens({ session }: { session: unknown }) {
         <Stack.Screen name="report/[id]" options={{ headerShown: true, title: 'Report' }} />
         {/* The screen sets its own title: "Your reports" or "Your rescues". */}
         <Stack.Screen name="history" options={{ headerShown: true, title: '' }} />
+        <Stack.Screen
+          name="notifications"
+          options={{ headerShown: true, title: 'Notifications' }}
+        />
+        <Stack.Screen
+          name="notification/[id]"
+          options={{ headerShown: true, title: 'Notification' }}
+        />
+        {/* The screen sets its own title: "About the dog". */}
+        <Stack.Screen name="chat/[claimId]" options={{ headerShown: true, title: 'Chat' }} />
         <Stack.Screen name="components" />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
