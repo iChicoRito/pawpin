@@ -107,6 +107,19 @@ test('unregister clears only the current profile and propagates detach failures'
   await assert.rejects(failed.api.unregisterForAlerts('user'), /Offline/);
 });
 
+test('tapped alert opens its chat, else its notification, and nothing without a report', async () => {
+  const { api } = alertsApi();
+  const [report, notification, claim] = ['93f50c71-43c0-4dce-9e13-e8be6365ac78',
+    '0b6d2f0e-52a3-4c0e-8a39-2f1f8f5d6a11', '5a1f4c9e-7d2b-4e61-9c3a-8e0b7d6f5a42'];
+  assert.deepEqual(
+    await api.alertTargetOf(tapped({ reportId: report, notificationId: notification, claimId: claim })),
+    { pathname: '/chat/[claimId]', params: { claimId: claim } });
+  assert.deepEqual(await api.alertTargetOf(tapped({ reportId: report, notificationId: notification })),
+    { pathname: '/notification/[id]', params: { id: notification } });
+  assert.equal(await api.alertTargetOf(tapped({ notificationId: '../settings' })), null);
+  assert.equal(await api.alertTargetOf(tapped({})), null);
+});
+
 test('alert without a report id opens nothing', () => {
   const { api } = alertsApi();
   assert.equal(api.reportIdOf(tapped({})), null);

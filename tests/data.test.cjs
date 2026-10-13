@@ -320,8 +320,8 @@ test('admin overview, a report’s flags, and the admin’s close each make one 
   assert.equal(flags.requests[0].query.get('report_id'), 'eq.r1');
 
   const close = adminApi(null);
-  await close.api.adminCloseReport('r1');
-  assert.deepEqual(close.requests[0].body, { p_report_id: 'r1' });
+  await close.api.adminCloseReport('r1', 'Wrong place');
+  assert.deepEqual(close.requests[0].body, { p_report_id: 'r1', p_reason: 'Wrong place' });
   assert.equal(close.requests[0].path, '/rest/v1/rpc/admin_close_report');
   const refused = await adminApi({ code: 'P0001', message: 'cannot_close' }, 400).api.adminCloseReport('r1').catch((error) => error);
   assert.equal(refused.message, 'cannot_close');

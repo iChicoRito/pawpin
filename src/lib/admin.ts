@@ -1,4 +1,4 @@
-import type { FlaggedReport } from '@/lib/flags';
+import type { FlaggedReport, FlagReason } from '@/lib/flags';
 import type { ReportUrgency } from '@/lib/reports';
 import { supabase } from '@/lib/supabase';
 
@@ -201,11 +201,14 @@ export async function fetchReportFlags(reportId: string) {
 }
 
 /**
- * The admin takes a report off the map: it ends as closed, and a rescuer on the way is told by its
- * leaving. Final. Refused with `cannot_close` when the report has already ended (`refusalOf` in
- * `claims.ts` knows that one).
+ * The admin takes a report off the map: it ends as closed, the reporter is told why, and a rescuer
+ * on the way is told it ended. Final. Refused with `cannot_close` when the report has already
+ * ended (`refusalOf` in `claims.ts` knows that one).
  */
-export async function adminCloseReport(reportId: string) {
-  const { error } = await supabase.rpc('admin_close_report', { p_report_id: reportId });
+export async function adminCloseReport(reportId: string, reason: FlagReason) {
+  const { error } = await supabase.rpc('admin_close_report', {
+    p_report_id: reportId,
+    p_reason: reason,
+  });
   if (error) throw error;
 }

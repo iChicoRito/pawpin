@@ -1,4 +1,5 @@
 import ArrowUpRight01Icon from '@hugeicons/core-free-icons/ArrowUpRight01Icon';
+import BubbleChatIcon from '@hugeicons/core-free-icons/BubbleChatIcon';
 import Calendar03Icon from '@hugeicons/core-free-icons/Calendar03Icon';
 import CancelCircleIcon from '@hugeicons/core-free-icons/CancelCircleIcon';
 import CheckmarkCircle02Icon from '@hugeicons/core-free-icons/CheckmarkCircle02Icon';
@@ -74,6 +75,7 @@ import {
   type FlagReason,
 } from '@/lib/flags';
 import { formatAge, formatDistance, initialsOf } from '@/lib/format';
+import { useChatClaim } from '@/lib/messages';
 import { fetchReport, type NearbyReport, type ReportDetail } from '@/lib/nearby';
 import {
   ANIMAL_TYPES,
@@ -103,7 +105,7 @@ const CONFIRMATIONS = {
   admin_close: {
     title: 'Close this report?',
     description:
-      'It ends as closed and leaves the map for everyone. The reporter is not alerted. It cannot be opened again.',
+      'It ends as closed and leaves the map for everyone. The reporter is told the reason. It cannot be opened again.',
     confirm: 'Close report',
     isDanger: true,
   },
@@ -164,7 +166,8 @@ export default function ReportDetailScreen() {
     | 'flag'
     | null
   >(null);
-  // What the viewer said is wrong with the report, kept until they confirm the flag.
+  // What the viewer said is wrong with the report, kept until they confirm the flag. An admin
+  // never flags, so for them it is the reason they are closing the report for.
   const [flagReason, setFlagReason] = useState<FlagReason>(FLAG_REASONS[0]);
   // Only for as long as this page is open: a flag cannot be read back, so it is not known later.
   const [hasFlagged, setHasFlagged] = useState(false);
@@ -202,6 +205,8 @@ export default function ReportDetailScreen() {
   const flags = useReportFlags(isAdmin ? report?.id : undefined);
   const noAnimalSeen = useNoAnimalSeen(isAdmin ? report?.id : undefined);
   const directions = useDirections(report ?? undefined);
+  // The claim whose chat this page may lead to. Read again when the status changes hands.
+  const chat = useChatClaim(report?.id, report?.status);
   const [muted, foreground] = useThemeColor(['muted', 'foreground']);
 
   if (!report) {
@@ -357,7 +362,7 @@ export default function ReportDetailScreen() {
     }
     act(pending, () =>
       pending === 'admin_close'
-        ? adminCloseReport(reportId)
+        ? adminCloseReport(reportId, flagReason)
         : pending === 'close' || pending === 'close_rescued'
           ? closeReport(reportId, pending === 'close_rescued')
           : pending === 'cancel'
@@ -590,6 +595,25 @@ export default function ReportDetailScreen() {
               scrolls with the page and is not held over it. A finished report has no buttons:
               only the room they would have taken, so the page does not end against the edge. */}
           <View style={[styles.actions, { paddingBottom: insets.bottom + Spacing.four }]}>
+            {/* Over the bar, not in it: the bar keeps its two buttons. Only for the two people of the
+                chat and an admin; on a finished report the database hands a chat to nobody else. */}
+            {chat && (isMine || isMyClaim || isAdmin || hasEnded) && (
+              <Button
+                variant="tertiary"
+                style={styles.actionsRow}
+                onPress={() =>
+                  router.push({ pathname: '/chat/[claimId]', params: { claimId: chat } })
+                }>
+                <HugeiconsIcon icon={BubbleChatIcon} size={18} color={foreground} />
+                <Button.Label>
+                  {hasEnded || isAdmin
+                    ? 'Read the chat'
+                    : isMine
+                      ? 'Message the rescuer'
+                      : 'Message the reporter'}
+                </Button.Label>
+              </Button>
+            )}
             {/* One line, two buttons at most: how to get there, and the one thing to do next. */}
             {!hasEnded && (
               <View style={styles.actionsRow}>
@@ -679,7 +703,8 @@ export default function ReportDetailScreen() {
                     variant="danger"
                     style={styles.mainAction}
                     isDisabled={busy !== null}
-                    onPress={() => askFirst('admin_close')}>
+                    // The reason first, from the same drawer a flag uses, then the question.
+                    onPress={() => flagTrigger.current?.open()}>
                     {busy === 'admin_close' ? 'Closing…' : 'Close report'}
                   </Button>
                 )}
@@ -776,14 +801,16 @@ export default function ReportDetailScreen() {
           {isFlagOpen && <PageVeil page={page} isDark={isDark} />}
           <Menu.Overlay />
           <Menu.Content presentation="bottom-sheet">
-            <Menu.Label>What is wrong with this report?</Menu.Label>
+            <Menu.Label>
+              {isAdmin ? 'Why are you closing it?' : 'What is wrong with this report?'}
+            </Menu.Label>
             {FLAG_REASONS.map((reason) => (
               <Menu.Item
                 key={reason}
                 style={styles.sheetRow}
                 onPress={() => {
                   setFlagReason(reason);
-                  askFirst('flag');
+                  askFirst(isAdmin ? 'admin_close' : 'flag');
                 }}>
                 <Menu.ItemTitle>{reason}</Menu.ItemTitle>
               </Menu.Item>
@@ -800,6 +827,7 @@ export default function ReportDetailScreen() {
             <Dialog.Title>{CONFIRMATIONS[pending].title}</Dialog.Title>
             <Dialog.Description>
               {CONFIRMATIONS[pending].description}
+              {pending === 'admin_close' && ` Reason: ${flagReason}.`}
               {/* The reporter should know a rescuer is already going before they take it down. */}
               {(pending === 'close' || pending === 'close_rescued' || pending === 'admin_close') &&
                 isResponding &&

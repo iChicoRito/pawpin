@@ -13,6 +13,8 @@ import { playSound } from '@/lib/sounds';
 /** Android sorts alerts into channels. PawPin has the one. */
 const CHANNEL = 'default';
 const CARD_KEY = 'pawpin.alerts-card-dismissed';
+/** How long the phone gets to hand over its push token before the try is given up. */
+const TOKEN_WAIT_MS = 15_000;
 let registrationQueue: Promise<unknown> = Promise.resolve();
 let registrationPaused = false;
 let registrationEpoch = 0;
@@ -91,7 +93,14 @@ export async function registerForAlerts(userId: string, isCurrent = () => true) 
         return;
       }
       // Reads the project id from app.json (`extra.eas.projectId`) and throws when there is none.
-      const { data: token } = await Notifications.getExpoPushTokenAsync();
+      // The read can hang for good when Google's push service does not answer. Without a limit it
+      // would hold the queue, and signing out waits on that queue.
+      const { data: token } = await Promise.race([
+        Notifications.getExpoPushTokenAsync(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Reading the push token timed out.')), TOKEN_WAIT_MS),
+        ),
+      ]);
       if (!valid() || !(await currentAccountIs(userId)) || !valid()) return;
       const key = JSON.stringify([userId, token, permission]);
       if (savedRegistration === key) return;
@@ -201,16 +210,47 @@ export function useAlertRegistration(userId: string | undefined) {
   }, [userId]);
 }
 
-/** The report an alert is about, or `null` when it names none. */
-export function reportIdOf(response: Notifications.NotificationResponse | null | undefined) {
-  const id = response?.notification.request.content.data?.reportId;
+/** One id an alert carries under `key`, or `null` when it carries none or something else. */
+function idOf(response: Notifications.NotificationResponse | null | undefined, key: string) {
+  const id = response?.notification.request.content.data?.[key];
   return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
     ? id : null;
 }
 
+/** The report an alert is about, or `null` when it names none. */
+export function reportIdOf(response: Notifications.NotificationResponse | null | undefined) {
+  return idOf(response, 'reportId');
+}
+
 /**
- * Opens the report of an alert that was tapped: the tap that opened the app, and taps while it
- * runs. Used once, inside the signed-in part of the app, so a signed-out phone opens nothing.
+ * Where a tapped alert leads. A chat message opens its chat. An alert that names a notification
+ * opens that notification's page. One that names only a report is a stray nearby, or an outcome
+ * (0017 sends those without the notification's id): the outcome's notification is looked up and
+ * opened, and anything else, or a failed look, opens the report.
+ */
+export async function alertTargetOf(response: Notifications.NotificationResponse | null | undefined) {
+  const claimId = idOf(response, 'claimId');
+  if (claimId) return { pathname: '/chat/[claimId]', params: { claimId } } as const;
+  const notificationId = idOf(response, 'notificationId');
+  if (notificationId) return { pathname: '/notification/[id]', params: { id: notificationId } } as const;
+  const reportId = reportIdOf(response);
+  if (!reportId) return null;
+  // Only the viewer's own rows are handed back, so a stray nearby finds none.
+  const { data } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('report_id', reportId)
+    .in('kind', ['rescued', 'not_found'])
+    .limit(1)
+    .maybeSingle();
+  return data
+    ? ({ pathname: '/notification/[id]', params: { id: data.id as string } } as const)
+    : ({ pathname: '/report/[id]', params: { id: reportId } } as const);
+}
+
+/**
+ * Opens what a tapped alert is about: the tap that opened the app, and taps while it runs. Used
+ * once, inside the signed-in part of the app, so a signed-out phone opens nothing.
  */
 export function useAlertTaps() {
   const router = useRouter();
@@ -219,11 +259,15 @@ export function useAlertTaps() {
   const opened = useRef<string | null>(null);
 
   useEffect(() => {
-    const id = reportIdOf(response);
     const alert = response?.notification.request.identifier;
-    if (!id || !alert || opened.current === alert) return;
+    if (!reportIdOf(response) || !alert || opened.current === alert) return;
     opened.current = alert;
-    router.push({ pathname: '/report/[id]', params: { id } });
+    alertTargetOf(response)
+      // The look failed outright: the report is still the right place to land.
+      .catch(() => ({ pathname: '/report/[id]', params: { id: reportIdOf(response)! } }) as const)
+      .then((target) => {
+        if (target) router.push(target);
+      });
   }, [response, router]);
 }
 

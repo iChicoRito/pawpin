@@ -30,11 +30,12 @@ test('current rescuer opens safety tips inside animal details card, not footer o
     '@/hooks/use-theme': { useTheme: () => ({ background: '#fff' }) },
     '@/hooks/use-directions': { useDirections: () => ({}) },
     '@/lib/admin': {}, '@/lib/claims': {}, '@/lib/nearby': {}, '@/lib/supabase': {},
+    '@/lib/messages': { useChatClaim: () => null },
     '@/lib/flags': { FLAG_REASONS: ['Other'] },
     '@/lib/format': { formatAge: () => 'Today' },
     '@/lib/reports': { labelFor: (_, value) => value },
   };
-  for (const name of ['ArrowUpRight01', 'Calendar03', 'CancelCircle', 'CheckmarkCircle02',
+  for (const name of ['ArrowUpRight01', 'BubbleChat', 'Calendar03', 'CancelCircle', 'CheckmarkCircle02',
     'FirstAidKit', 'Flag02', 'InformationCircle', 'Megaphone01', 'PaintBoard', 'PawPrint', 'Ruler',
     'SearchRemove', 'Undo02', 'User']) {
     dependencies[`@hugeicons/core-free-icons/${name}Icon`] = {};
