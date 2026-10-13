@@ -118,7 +118,7 @@ begin
       where report_id = '00000000-0000-4000-8000-0000000000a2') <> 'cancelled' then
     raise exception 'FAIL: the rescuer''s claim was not cancelled';
   end if;
-  if has_function_privilege('anon', 'public.admin_close_report(uuid)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.admin_close_report(uuid, text)', 'EXECUTE')
     or has_function_privilege('anon', 'public.admin_overview()', 'EXECUTE') then
     raise exception 'FAIL: a signed-out visitor can run an admin function';
   end if;
