@@ -67,5 +67,12 @@
     "lint": "expo lint",
     "test": "node --test tests/*.test.cjs"
   },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-camera"]
+      }
+    }
+  },
   "private": true
 }

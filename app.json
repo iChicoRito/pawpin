@@ -2,7 +2,7 @@
   "expo": {
     "name": "PawPin",
     "slug": "PawPin",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/pawpin-icon.png",
     "scheme": "pawpin",
@@ -48,7 +48,8 @@
         {
           "cameraPermission": "PawPin uses the camera to photograph the stray you are reporting.",
           "microphonePermission": false,
-          "recordAudioAndroid": false
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
         }
       ],
       [
@@ -86,7 +87,8 @@
           "faceIDPermission": false
         }
       ],
-      "./plugins/with-android-backup.js"
+      "./plugins/with-android-backup.js",
+      "./plugins/with-no-barcode-proguard.js"
     ],
     "experiments": {
       "typedRoutes": true,
