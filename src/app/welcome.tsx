@@ -1,18 +1,18 @@
-import { Image } from 'expo-image';
 import { Button } from 'heroui-native';
 import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Banner } from '@/components/animated-splash';
 import { BrandIcon, GOOGLE_LOGO } from '@/components/brand-icon';
 import { ToastIcon } from '@/components/report-sent';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useFeedbackToast } from '@/hooks/use-feedback';
 import { signInWithGoogle } from '@/lib/auth';
 import { GuestSignInError, signInAsGuest } from '@/lib/guest-auth';
+import { setSplashTarget } from '@/lib/splash-target';
 
 type Method = 'google' | 'guest';
 
@@ -20,7 +20,14 @@ export default function WelcomeScreen() {
   const [signingIn, setSigningIn] = useState<Method | null>(null);
   const isSigningIn = useRef(false);
   const { toast } = useFeedbackToast();
-  const colorScheme = useColorScheme();
+  const logo = useRef<View>(null);
+
+  // The logo's place in the window is told to the splash, which moves its own banner onto it.
+  function measureLogo() {
+    logo.current?.measureInWindow((left, top, width, height) =>
+      setSplashTarget({ left, top, width, height })
+    );
+  }
 
   async function signIn(method: Method) {
     if (isSigningIn.current) return;
@@ -50,14 +57,15 @@ export default function WelcomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.intro}>
-          <Image
-            source={colorScheme === 'dark'
-              ? require('../../assets/DarkMode.svg')
-              : require('../../assets/LightMode.svg')}
+          <View
+            ref={logo}
+            onLayout={measureLogo}
+            accessible
+            accessibilityRole="image"
             accessibilityLabel="PawPin"
-            contentFit="contain"
-            style={styles.logo}
-          />
+            style={styles.logo}>
+            <Banner still />
+          </View>
         </View>
 
         <View style={styles.actions}>
@@ -105,9 +113,6 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignSelf: 'center',
-    width: '100%',
-    maxWidth: 320,
-    aspectRatio: 735 / 253,
   },
   note: {
     textAlign: 'center',

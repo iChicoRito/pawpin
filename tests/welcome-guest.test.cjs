@@ -26,6 +26,8 @@ function welcome(guest, google = async () => {}) {
     '@/constants/theme': theme,
     '@/hooks/use-color-scheme': { useColorScheme: () => 'light' },
     '@/lib/auth': { signInWithGoogle: google },
+    '@/components/animated-splash': { Banner: 'Banner' },
+    '@/lib/splash-target': { setSplashTarget() {} },
     '@/lib/guest-auth': { GuestSignInError, signInAsGuest: () => guest(GuestSignInError) },
     '@/lib/supabase': { supabase: { auth: { signInAnonymously: async () => ({ error: null }) } } },
     '../../assets/DarkMode.svg': 'dark-logo', '../../assets/LightMode.svg': 'light-logo',

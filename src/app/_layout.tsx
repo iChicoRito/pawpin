@@ -1,12 +1,13 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { HeroUINativeProvider } from 'heroui-native';
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import '@/global.css';
 
+import { AnimatedSplash } from '@/components/animated-splash';
 import { DrawerBackdropProvider, DrawerBlurTarget } from '@/components/drawer-backdrop';
 import { SoundEffects } from '@/components/sound-effects';
 import { NearbyReportsProvider } from '@/hooks/use-nearby-reports';
@@ -44,13 +45,18 @@ function RootNavigator() {
   const { session, isLoading } = useSession();
   useAlertRegistration(session?.user.id);
 
-  useEffect(() => {
-    if (!isLoading) SplashScreen.hide();
-  }, [isLoading]);
+  const [splashDone, setSplashDone] = useState(false);
 
-  // The phone's own splash stays up until the saved session is read, so the wrong screen never flashes.
-  if (isLoading) return null;
+  return (
+    <>
+      {/* No screen until the saved session is read, so the wrong one never flashes under the splash. */}
+      {isLoading ? null : <Screens session={session} />}
+      {splashDone ? null : <AnimatedSplash ready={!isLoading} toLogo={!session} onDone={() => setSplashDone(true)} />}
+    </>
+  );
+}
 
+function Screens({ session }: { session: unknown }) {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={!!session}>

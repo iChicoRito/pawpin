@@ -2,8 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { loadSource, hooks, findElement, ui, native, theme } = require('./load-source.cjs');
 
-test('welcome logo follows theme changes and stays centered without stretching', () => {
-  let scheme = 'light';
+test('welcome logo is the splash banner, still and centered', () => {
   const state = hooks();
   const { default: Welcome } = loadSource('src/app/welcome.tsx', {
     'expo-image': { Image: 'Image' },
@@ -16,24 +15,19 @@ test('welcome logo follows theme changes and stays centered without stretching',
     '@/components/themed-text': { ThemedText: 'ThemedText' },
     '@/components/themed-view': { ThemedView: 'ThemedView' },
     '@/constants/theme': theme,
-    '@/hooks/use-color-scheme': { useColorScheme: () => scheme },
     '@/lib/auth': { signInWithGoogle() {} },
+    '@/components/animated-splash': { Banner: 'Banner' },
+    '@/lib/splash-target': { setSplashTarget() {} },
     '@/lib/guest-auth': { signInAsGuest() {}, GuestSignInError: Error },
     '../../assets/DarkMode.svg': 'dark-logo',
     '../../assets/LightMode.svg': 'light-logo',
   });
 
-  for (const [next, expected] of [['light', 'light-logo'], ['dark', 'dark-logo'], [null, 'light-logo']]) {
-    scheme = next;
-    const tree = state.render(Welcome);
-    const logo = findElement(tree, (element) => element.type === 'Image');
-    assert.ok(logo, 'welcome screen renders logo');
-    assert.equal(logo.props.source, expected);
-    assert.equal(logo.props.accessibilityLabel, 'PawPin');
-    assert.equal(logo.props.contentFit, 'contain');
-    assert.equal(logo.props.style.alignSelf, 'center');
-    assert.equal(logo.props.style.width, '100%');
-    assert.equal(logo.props.style.maxWidth, 320);
-    assert.equal(logo.props.style.aspectRatio, 735 / 253);
-  }
+  // The banner colors itself by theme. The welcome screen only places and labels it.
+  const tree = state.render(Welcome);
+  const logo = findElement(tree, (element) => element.props?.accessibilityLabel === 'PawPin');
+  assert.ok(logo, 'welcome screen renders logo');
+  assert.equal(logo.props.style.alignSelf, 'center');
+  const banner = findElement(logo, (element) => element.type === 'Banner');
+  assert.equal(banner.props.still, true, 'the splash already played the animation');
 });
