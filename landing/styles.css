@@ -166,6 +166,7 @@ section > h2 { margin-bottom: clamp(28px, 4vw, 56px); }
 .steps li.in .step-ic { border-color: var(--accent); background: var(--accent); color: var(--brown); }
 .steps p { color: var(--muted); font-size: 0.98rem; }
 .steps b { color: var(--text); }
+.steps h3 { font-weight: 500; }
 
 /* Bento: 6 columns, nine tiles, no empty cell. Each tile is as tall as what it holds. */
 .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
@@ -182,6 +183,7 @@ section > h2 { margin-bottom: clamp(28px, 4vw, 56px); }
 .legend li { display: flex; gap: 14px; align-items: center; padding: 10px 12px; margin-left: -12px; border-radius: 16px; }
 .legend img { width: 36px; height: 36px; }
 .legend b, .tips b, .notice b { display: block; }
+.legend b { font-weight: 500; }
 .legend span { color: var(--muted); font-size: 0.92rem; }
 .q1 { left: 30%; top: 26%; } .q2 { left: 66%; top: 20%; } .q3 { left: 48%; top: 50%; } .q4 { left: 80%; top: 62%; } .q5 { left: 24%; top: 70%; } .q6 { left: 62%; top: 82%; }
 
@@ -254,6 +256,7 @@ section > h2 { margin-bottom: clamp(28px, 4vw, 56px); }
 .safety figure { border-radius: var(--r-tile); overflow: hidden; aspect-ratio: 4 / 5; }
 .safety figure img { width: 100%; height: 100%; object-fit: cover; object-position: 62% 50%; }
 .safety h2 { margin-bottom: 16px; }
+.tips b { font-weight: 500; }
 .tips { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 28px; margin-top: 34px; }
 .tips li { display: flex; gap: 14px; }
 .tips .ic { width: 26px; height: 26px; color: var(--accent-text); margin-top: 2px; }
@@ -266,7 +269,8 @@ section > h2 { margin-bottom: clamp(28px, 4vw, 56px); }
 .dl-main p { max-width: 34ch; }
 .dl .meta { color: var(--brown); }
 .dl-side { margin: 14px; padding: clamp(24px, 4vw, 44px); border-radius: 28px; background: var(--bg); color: var(--text); display: grid; gap: 14px; align-content: center; }
-.dl-side h3 { font-size: 1.1rem; }
+.dl-side h3 { font-size: 1.1rem; font-weight: 500; }
+.dl-side b { font-weight: 500; }
 .dl-side h3:not(:first-child) { margin-top: 14px; }
 .dl-side ol { counter-reset: n; display: grid; gap: 10px; }
 .dl-side ol li { counter-increment: n; display: flex; gap: 12px; }
