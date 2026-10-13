@@ -26,15 +26,20 @@ test('user and admin tabs use solid glyphs in both selection states without chan
       'react-native-safe-area-context': {},
       '@/constants/theme': theme,
       '@/hooks/use-session': { useSession: () => ({ isAdmin }) },
+      '@/lib/notifications': { useUnreadCount: () => 2 },
     }, ['TabButton']);
     const tree = AppTabs();
     const expected = isAdmin
       ? [['index', '/', 'Dashboard'], ['list', '/list', 'Reports'], ['profile', '/profile', 'Profile']]
-      : [['index', '/', 'Map'], ['list', '/list', 'List'], ['report', '/report', 'Report'], ['profile', '/profile', 'Profile']];
+      : [['index', '/', 'Map'], ['list', '/list', 'List'], ['report', '/report', 'Report'], ['chats', '/chats', 'Chats'], ['profile', '/profile', 'Profile']];
     for (const [name, href, label] of expected) {
       const trigger = findElement(tree, (node) => node.type === 'TabTrigger' && node.props.name === name);
       assert.equal(trigger.props.href, href);
       assert.equal(trigger.props.children.props.label, label);
+      // Only Report, the middle tab, is the raised one. An admin has none.
+      assert.equal(!!trigger.props.children.props.isPrimary, name === 'report');
+      // Only Chats carries the unread dot, and says so.
+      assert.equal(!!trigger.props.children.props.hasBadge, name === 'chats');
       for (const isFocused of [false, true]) {
         const button = __test.TabButton({ ...trigger.props.children.props, isFocused });
         assert.equal(button.props['aria-selected'], isFocused);
@@ -50,5 +55,5 @@ test('user and admin tabs use solid glyphs in both selection states without chan
       }
     }
   }
-  assert.equal(paths.size, 5, 'Map, List, Report, Profile and Dashboard must stay distinct');
+  assert.equal(paths.size, 6, 'Map, List, Report, Chats, Profile and Dashboard must stay distinct');
 });

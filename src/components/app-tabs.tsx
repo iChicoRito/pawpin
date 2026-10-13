@@ -13,26 +13,40 @@ import Svg, { Path } from 'react-native-svg';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useSession } from '@/hooks/use-session';
+import { useUnreadCount } from '@/lib/notifications';
 
 export const BAR_HEIGHT = 64;
 const ICON_SIZE = 20;
 /** Width of the top line, as a share of one tab's width. */
 const LINE_SHARE = 0.6;
 const SWITCH_MS = 240;
+/** The middle tab's circle, its ring included, and how far it stands above the bar's top edge. */
+const PRIMARY_SIZE = 56;
+const PRIMARY_ICON_SIZE = 26;
+const PRIMARY_RAISE = 22;
 
 const TAB_ICON_PATHS = {
   map: 'M3 6 8 3v15l-5 3V6Zm7-3 4 3v15l-4-3V3Zm6 3 5-3v15l-5 3V6Z',
   list: 'M4 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm5 0h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM4 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm5 0h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1ZM4 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm5 0h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z',
   camera: 'M9 3h6l2 3h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3Zm3 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
   user: 'M12 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9ZM9 13h6a6 6 0 0 1 6 6v2H3v-2a6 6 0 0 1 6-6Z',
+  chat: 'M5 3h14a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-6l-5 4v-4H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 5v2h10V8H7Zm0 4v2h6v-2H7Z',
   dashboard: 'M4 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM4 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Zm11 0h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z',
 } as const;
 
 type TabIcon = keyof typeof TAB_ICON_PATHS;
 
-function FilledTabIcon({ icon, color }: { icon: TabIcon; color: string }) {
+function FilledTabIcon({
+  icon,
+  color,
+  size = ICON_SIZE,
+}: {
+  icon: TabIcon;
+  color: string;
+  size?: number;
+}) {
   return (
-    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" aria-hidden>
+    <Svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
       <Path d={TAB_ICON_PATHS[icon]} fill={color} fillRule="evenodd" />
     </Svg>
   );
@@ -40,10 +54,12 @@ function FilledTabIcon({ icon, color }: { icon: TabIcon; color: string }) {
 
 type Tab = {
   name: string;
-  href: '/' | '/list' | '/report' | '/profile';
+  href: '/' | '/list' | '/report' | '/chats' | '/profile';
   label: string;
   accessibilityLabel?: string;
   icon: TabIcon;
+  /** The one tab the app is for. Drawn as a raised, filled circle in the middle of the bar. */
+  isPrimary?: boolean;
 };
 
 const TABS: readonly Tab[] = [
@@ -55,7 +71,10 @@ const TABS: readonly Tab[] = [
     label: 'Report',
     accessibilityLabel: 'Report a stray',
     icon: 'camera',
+    isPrimary: true,
   },
+  // The chats a person has about reports: theirs with a rescuer, or a reporter's with them.
+  { name: 'chats', href: '/chats', label: 'Chats', icon: 'chat' },
   { name: 'profile', href: '/profile', label: 'Profile', icon: 'user' },
 ];
 
@@ -93,8 +112,10 @@ export function useHideTabBar(isHidden: boolean) {
 }
 
 export default function AppTabs() {
-  const { isAdmin } = useSession();
+  const { session, isAdmin } = useSession();
   const tabs = isAdmin ? ADMIN_TABS : TABS;
+  // An admin has no Chats tab, so nothing is counted for them.
+  const unreadMessages = useUnreadCount(isAdmin ? undefined : session?.user.id, 'message');
   return (
     <Tabs style={styles.root}>
       <TabSlot style={styles.slot} />
@@ -106,6 +127,8 @@ export default function AppTabs() {
                 label={tab.label}
                 accessibilityLabel={tab.accessibilityLabel ?? tab.label}
                 icon={tab.icon}
+                hasBadge={tab.name === 'chats' && !!unreadMessages}
+                isPrimary={tab.isPrimary}
               />
             </TabTrigger>
           ))}
@@ -134,7 +157,14 @@ function TabBar({ tabs, style, children, ...props }: ViewProps & { tabs: readonl
     () => withTiming(selected, { duration: SWITCH_MS }),
     [selected]
   );
+  // The raised circle of the middle tab would sit on the line, so the line steps aside for it.
+  const isPrimarySelected = !!tabs[selected]?.isPrimary;
+  const lineOpacity = useDerivedValue(
+    () => withTiming(isPrimarySelected ? 0 : 1, { duration: SWITCH_MS }),
+    [isPrimarySelected]
+  );
   const lineStyle = useAnimatedStyle(() => ({
+    opacity: lineOpacity.value,
     transform: [{ translateX: position.value * tabWidth + (tabWidth - lineWidth) / 2 }],
   }));
 
@@ -165,10 +195,28 @@ type TabButtonProps = TabTriggerSlotProps & {
   label: string;
   accessibilityLabel: string;
   icon: TabIcon;
+  /** A red dot on the icon: something in this tab is unread. */
+  hasBadge?: boolean;
+  isPrimary?: boolean;
 };
 
-function TabButton({ label, accessibilityLabel, icon, isFocused, ...props }: TabButtonProps) {
-  const [accent, foreground, muted] = useThemeColor(['accent', 'foreground', 'muted']);
+function TabButton({
+  label,
+  accessibilityLabel,
+  icon,
+  hasBadge,
+  isPrimary,
+  isFocused,
+  ...props
+}: TabButtonProps) {
+  const [accent, foreground, muted, danger, surface, accentForeground] = useThemeColor([
+    'accent',
+    'foreground',
+    'muted',
+    'danger',
+    'surface',
+    'accent-foreground',
+  ]);
   const progress = useDerivedValue(
     () => withTiming(isFocused ? 1 : 0, { duration: SWITCH_MS }),
     [isFocused]
@@ -183,16 +231,29 @@ function TabButton({ label, accessibilityLabel, icon, isFocused, ...props }: Tab
       {...props}
       role="tab"
       aria-selected={!!isFocused}
-      aria-label={accessibilityLabel}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-      <View style={styles.icon}>
-        <Animated.View style={restStyle}>
-          <FilledTabIcon icon={icon} color={muted} />
-        </Animated.View>
-        <Animated.View style={[StyleSheet.absoluteFill, activeStyle]}>
-          <FilledTabIcon icon={icon} color={accent} />
-        </Animated.View>
-      </View>
+      aria-label={hasBadge ? `${accessibilityLabel}, unread` : accessibilityLabel}
+      style={({ pressed }) => [
+        styles.button,
+        isPrimary && styles.primaryButton,
+        pressed && styles.pressed,
+      ]}>
+      {isPrimary ? (
+        // Always filled, selected or not: it is the way into the one thing the app is for. The ring
+        // in the bar's own color makes it read as set into the bar, not laid over it.
+        <View style={[styles.primary, { backgroundColor: accent, borderColor: surface }]}>
+          <FilledTabIcon icon={icon} color={accentForeground} size={PRIMARY_ICON_SIZE} />
+        </View>
+      ) : (
+        <View style={styles.icon}>
+          <Animated.View style={restStyle}>
+            <FilledTabIcon icon={icon} color={muted} />
+          </Animated.View>
+          <Animated.View style={[StyleSheet.absoluteFill, activeStyle]}>
+            <FilledTabIcon icon={icon} color={accent} />
+          </Animated.View>
+          {hasBadge && <View aria-hidden style={[styles.badge, { backgroundColor: danger }]} />}
+        </View>
+      )}
       <View aria-hidden>
         <Animated.Text style={[styles.label, { color: muted }, restStyle]}>{label}</Animated.Text>
         <Animated.View style={[StyleSheet.absoluteFill, activeStyle]}>
@@ -244,9 +305,34 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
+  // The label keeps to the line of the other four labels; the circle stands above it.
+  primaryButton: {
+    justifyContent: 'flex-end',
+    paddingBottom: (BAR_HEIGHT - ICON_SIZE - Spacing.one - 16) / 2,
+  },
+  // Out of the row's flow, so it can rise past the bar's top edge. On Android the part above the
+  // bar does not take touches; the rest of the circle and the label do.
+  primary: {
+    position: 'absolute',
+    top: -PRIMARY_RAISE,
+    width: PRIMARY_SIZE,
+    height: PRIMARY_SIZE,
+    borderRadius: PRIMARY_SIZE / 2,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   icon: {
     width: ICON_SIZE,
     height: ICON_SIZE,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
   },
   label: {
     fontSize: 13,
